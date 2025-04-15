@@ -9,9 +9,9 @@ from math import dist
 from numpy import dot, arccos, degrees
 from numpy.linalg import norm
 
-from scripts.classes import Contact
-from scripts.distances import distances
-import scripts.conditions as conditions
+from src.classes import Contact
+from src.distances import distances
+import src.conditions as conditions
 
 
 def contact_detection(protein, region, interface, custom_distances, epsilon):

@@ -5,7 +5,7 @@ Date: 12/08/2024
 License: MIT License
 """
 
-from scripts.classes import Protein, Chain, Residue, Atom
+from src.classes import Protein, Chain, Residue, Atom
 
 import os
 from numpy import mean, array
