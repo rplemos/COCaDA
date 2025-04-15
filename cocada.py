@@ -8,8 +8,6 @@ License: MIT License
 import os
 import json
 from timeit import default_timer as timer
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from psutil import Process
 from itertools import islice
 
 import src.parser as parser
@@ -28,29 +26,17 @@ def main():
     """
     global_time_start = timer()
     
-    file_list, core, output, region, interface, custom_distances = argparser.cl_parse()
+    file_list, core, output, custom_distances = argparser.cl_parse()
     
     print("--------------COCaDA----------------\n")
     
     # context object for shared parameters
-    context = classes.ProcessingContext(core=core, output=output, region=region, interface=interface, custom_distances=custom_distances)
+    context = classes.ProcessingContext(core=core, output=output, custom_distances=custom_distances) 
     
     if core is not None:  # Set specific core affinity
-        Process(os.getpid()).cpu_affinity(core)
-        print("Multicore mode selected")
-                     
-        if len(core) == 1: # One specific core
-            print(f"Running on core {core[0]}.")
-        elif core[-1] - core[0] == len(core) - 1:  # Range
-            print(f"Running on cores {core[0]} to {core[-1]}\nTotal number of cores: {len(core)}")
-        else: # List
-            print(f"Running on cores: {', '.join(map(str, core))}\nTotal number of cores: {len(core)}")
-
+        print("Multicore mode selected.")
     else:
         print("Running on single mode with no specific core.")
-
-    if interface:
-        print("Calculating only interface contacts.") 
                
     if output:
         print(f"Generating outputs in '{output}' folder.")
@@ -74,6 +60,7 @@ def main():
             
         context.custom_distances = validated_distances
 
+    print()
     process_func = single if core is None else multi_batch
     process_func(file_list, context)
     
@@ -87,7 +74,7 @@ def single(file_list, context):
 
     Args:
         file_list (list): List of file paths to process.
-        context (ProcessingContext): Context object containing parameters such as core, output, and region.
+        context (ProcessingContext): Context object containing parameters such as core and output.
 
     This function processes each file in the list sequentially, detects contacts, and outputs the results to the console or to a file, depending on the 'output' flag.
     """
@@ -105,23 +92,41 @@ def multi_batch(file_list, context):
 
     Args:
         file_list (list): List of file paths to process.
-        context (ProcessingContext): Context object containing parameters such as core, output, and region.
+        context (ProcessingContext): Context object containing parameters such as core and output.
     """
-    num_cores = len(context.core)
-    batch_size = max(1, len(file_list) // num_cores)
-    print(f"Number of files: {len(file_list)} | Batch size: {batch_size}\n")
+    core = context.core
 
-    with ProcessPoolExecutor(max_workers=num_cores) as executor:
-        futures = {executor.submit(process_batch, batch, context): batch
-                   for batch in batch_generator(file_list, batch_size)}
+    try:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        from psutil import Process
+        
+        Process(os.getpid()).cpu_affinity(core)             
+        if len(core) == 1: # One specific core
+            print(f"Running on core {core[0]}.")
+        elif core[-1] - core[0] == len(core) - 1:  # Range
+            print(f"Running on cores {core[0]} to {core[-1]}\nTotal number of cores: {len(core)}")
+        else: # List
+            print(f"Running on cores: {', '.join(map(str, core))}\nTotal number of cores: {len(core)}")
+         
+        num_cores = len(core)
+        batch_size = max(1, len(file_list) // num_cores)
+        print(f"Number of files: {len(file_list)} | Batch size: {batch_size} files per core")
+        print()
+        
+        with ProcessPoolExecutor(max_workers=num_cores) as executor:
+            futures = {executor.submit(process_batch, batch, context): batch
+                    for batch in batch_generator(file_list, batch_size)}
 
-        for future in as_completed(futures):  # Wait for all batches to complete
-            try:
-                future.result()  # Process results from batch
-            except Exception as e:
-                print(f"Error processing batch: {e}")
-            finally:
-                del futures[future] 
+            for future in as_completed(futures):  # Wait for all batches to complete
+                try:
+                    future.result()  # Process results from batch
+                except Exception as e:
+                    print(f"Error processing batch: {e}")
+                finally:
+                    del futures[future] 
+    except ImportError:
+        print("Error.")
+        exit(1)
 
 
 def process_batch(batch, context):
@@ -130,7 +135,7 @@ def process_batch(batch, context):
 
     Args:
         batch (list): List of file paths in the batch.
-        context (ProcessingContext): Context object containing parameters such as core, output, and region.
+        context (ProcessingContext): Context object containing parameters such as core and output.
     """
     for file_path in batch:
         result = process_file(file_path, context)
@@ -160,7 +165,7 @@ def process_file(file_path, context):
 
     Args:
         file_path (str): Path to the file to be processed.
-        context (ProcessingContext): Context object containing parameters such as core, output, and region.
+        context (ProcessingContext): Context object containing parameters such as core and output.
 
     Returns:
         tuple: A tuple containing the processed Protein object, the list of detected contacts, and the processing time.
@@ -180,9 +185,9 @@ def process_file(file_path, context):
                     f.write(f"{parsed_data.id},{parsed_data.title},{parsed_data.true_count()},x\n")
             return None
 
-        contacts_list, interface_res = contacts.contact_detection(parsed_data, context.region, context.interface, context.custom_distances, context.epsilon)
+        contacts_list = contacts.contact_detection(parsed_data, context.custom_distances, context.epsilon)
         process_time = timer() - start_time
-        return parsed_data, contacts_list, process_time, interface_res
+        return parsed_data, contacts_list, process_time
 
     except Exception as e:
         print(f"Error processing {file_path}: {e}")
@@ -198,7 +203,7 @@ def process_result(result, output):
         output (str): The directory where output files will be saved.
     """
     if result:
-        protein, contacts_list, process_time, interface_res = result
+        protein, contacts_list, process_time = result
         output_data = f"ID: {protein.id} | Size: {protein.true_count():<7} | Contacts: {len(contacts_list):<7} | Time: {process_time:.3f}s"
         print(output_data)
         
@@ -210,12 +215,7 @@ def process_result(result, output):
             
             with open(f"{output_folder}/{protein.id}_contacts.csv","w") as f:
                 f.write(contacts.show_contacts(contacts_list))
-            
-            ### Created for COCaDA_speed ###
-            # with open(f"{output_folder}/{protein.id}_interface.csv", "w") as f:
-            #     for res in interface_res:
-            #         f.write(f"{res}\n")  # Writes each residue on a new line
-
+                
 
 def validate_categories(categories):
     for key, (min_val, max_val) in categories.items():

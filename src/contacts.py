@@ -14,7 +14,7 @@ from src.distances import distances
 import src.conditions as conditions
 
 
-def contact_detection(protein, region, interface, custom_distances, epsilon):
+def contact_detection(protein, custom_distances, epsilon):
     """
     Detects contacts between atoms in a given protein.
 
@@ -27,7 +27,6 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
 
     residues = list(protein.get_residues())
     contacts = []
-    interface_res = set()
     max_ca_distance = 20.47 # 0.01 higher than the Arg-Arg pair
     
     categories = custom_distances if custom_distances else conditions.categories
@@ -41,9 +40,6 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
         for _, residue2 in enumerate(residues[i+1:], start=i+1):
             
             if residue1.resnum == residue2.resnum and residue1.chain.id == residue2.chain.id: # ignores same residue
-                continue
-            
-            if region and (residue1.resnum not in region or residue2.resnum not in region):
                 continue
 
             if len(residue1.atoms) > 1 and len(residue2.atoms) > 1:
@@ -65,8 +61,6 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
             # CHECKING FOR AROMATIC STACKINGS
             if residue1.ring and residue2.ring:
                 ring1, ring2 = residue1.atoms[-1], residue2.atoms[-1] # RNG atoms
-                if interface and ring1.entity == ring2.entity:
-                    continue
                 
                 distance = dist((ring1.x, ring1.y, ring1.z), (ring2.x, ring2.y, ring2.z))
                 angle = calc_angle(residue1.normal_vector, residue2.normal_vector)
@@ -88,10 +82,7 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
                     
             for atom1 in residue1.atoms:
                 for atom2 in residue2.atoms:
-                    
-                    if interface and atom1.entity == atom2.entity:
-                        continue
-                    
+
                     name1 = f"{atom1.residue.resname}:{atom1.atomname}" # matches the pattern from conditions dictionary
                     name2 = f"{atom2.residue.resname}:{atom2.atomname}"
 
@@ -115,8 +106,7 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
 
                                         contacts.append(contact)
                                         
-                                        interface_res.add(f"{residue1.chain.id},{residue1.resnum},{residue1.resname}")
-    return contacts, interface_res
+    return contacts
 
 
 def show_contacts(contacts):

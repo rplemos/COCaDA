@@ -33,15 +33,12 @@ def cl_parse():
         parser.add_argument('-f', '--files', nargs='+', required=True, type=validate_file, help='List of files in pdb/cif format (at least one required). Wildcards are accepted (ex. -f *.cif).')
         parser.add_argument('-m', '--multicore', required=False, nargs='?', const=0, help='Use MultiCore mode. Default uses all available cores, and selections can be defined based on the following: -m X = specific single core. -m X-Y = range of cores from X to Y. -m X,Y,Z... = specific multiple cores.')
         parser.add_argument('-o', '--output', required=False, nargs='?', const='./outputs', help='Outputs the results to files in the given folder. Default is ./outputs.')
-        parser.add_argument('-r', '--region', required=False, nargs='?', help='Define only a region of residues to be analyzed. Selections can be defined based on the following: -r X-Y = range of residues from X to Y. -r X,Y,Z... = specific multiple residues.')
-        parser.add_argument('-i', '--interface', required=False, action='store_true', help='Calculate only interface contacts.')
         parser.add_argument('-d', '--distances', required=False, action='store_true', help='Processes custom contact distances based on the "contact_distances.txt" file.')
 
         args = parser.parse_args()
 
         files = args.files
         output = args.output
-        interface = args.interface
         distances = args.distances
                 
         ncores = cpu_count()
@@ -53,12 +50,6 @@ def cl_parse():
                 core = validate_core(multi, ncores)
         else:
             core = None
-            
-        region_values = args.region
-        if region_values is not None:
-            region = validate_region(region_values)
-        else:
-            region = None
         
     except ArgumentError as e:
         print(f"Argument Error: {str(e)}")
@@ -72,7 +63,7 @@ def cl_parse():
         print(f"An unexpected error occurred: {str(e)}")
         exit(1)
     
-    return files, core, output, region, interface, distances
+    return files, core, output, distances
         
         
 def validate_file(value):
@@ -136,37 +127,3 @@ def validate_core(value, ncores):
         return core_list
     
     raise ArgumentTypeError(f"Invalid core format: {value}. Use a single core, a range (x-y), or a list (x,y,z).")
-
-
-def validate_region(region):
-    """
-    Validates and parses a region input, which can be either a range (e.g., "10-19")
-    or a comma-separated list of values (e.g., "10,32,65").
-
-    Args:
-        region (str): The input string representing the region selection.
-
-    Returns:
-        list: A list of integers representing the parsed region values.
-
-    Raises:
-        ArgumentTypeError: If the input format is invalid or contains negative values.
-    """
-    
-    # Check if it's a range (e.g. 10-19)
-    range_match = re.match(r'^(\d+)-(\d+)$', region)
-    if range_match:
-        start_res, end_res = map(int, range_match.groups())
-        if start_res < 0 or start_res > end_res:
-            raise ArgumentTypeError(f"Invalid range {start_res}-{end_res}]")
-        return list(range(start_res, end_res + 1))
-
-    # Check if it's a list (e.g. 10,32,65)
-    list_match = re.match(r'^(\d+(,\d+)+)$', region)
-    if list_match:
-        res_list = list(map(int, region.split(',')))
-        if any(core < 0 for core in res_list):
-            raise ArgumentTypeError("One or more value is not valid.")
-        return res_list
-    
-    raise ArgumentTypeError(f"Invalid region format: {region}. Use a range (x-y) or a list (x,y,z).")
