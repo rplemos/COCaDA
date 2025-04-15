@@ -6,11 +6,19 @@ License: MIT License
 """
 
 class ProcessingContext:
-    def __init__(self, core=None, output=None, region=False, interface=False):
+    """
+    Stores processing parameters passed by command-line.
+
+    Attributes:
+        core (str or None): The core selection for processing. Defaults to None.
+        output (str or None): The output file path or identifier. Defaults to None.
+    """
+
+    def __init__(self, core=None, output=None, custom_distances=False, epsilon=0):
         self.core = core
         self.output = output
-        self.region = region
-        self.interface = interface
+        self.custom_distances = custom_distances
+        self.epsilon = epsilon
 
 class Protein:
     """

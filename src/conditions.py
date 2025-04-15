@@ -21,6 +21,7 @@ categories = {
     'repulsive': (2, 6),
     'attractive': (3.9, 6),
     'disulfide_bond': (0, 2.8),
+    'aromatic': (2, 5)
 }
 
 
@@ -31,6 +32,7 @@ contact_conditions = {
     'hydrophobic': lambda name1, name2: contact_types[name1][0] == 1 and contact_types[name2][0] == 1,
     'repulsive': lambda name1, name2: (contact_types[name1][2] == 1 and contact_types[name2][2] == 1) or (contact_types[name1][3] == 1 and contact_types[name2][3] == 1),
     'attractive': lambda name1, name2: (contact_types[name1][2] == 1 and contact_types[name2][3] == 1) or (contact_types[name1][3] == 1 and contact_types[name2][2] == 1),
+    'aromatic': lambda name1, name2: (contact_types[name1][1] == 2 and contact_types[name2][1] == 2) # aromatics are checked elsewhere
 }
 
 

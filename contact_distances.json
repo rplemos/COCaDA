@@ -1,0 +1,9 @@
+{
+    "salt_bridge": [0, 3.9],
+    "hydrophobic": [2, 4.5],
+    "hydrogen_bond": [0, 3.9],
+    "repulsive": [2, 6],
+    "attractive": [3.9, 6],
+    "disulfide_bond": [0, 2.8],
+    "aromatic": [2, 5]
+}
