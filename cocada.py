@@ -12,10 +12,10 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from psutil import Process
 from itertools import islice
 
-import parser
-import argparser
-import contacts
-import classes
+import scripts.parser as parser
+import scripts.argparser as argparser
+import scripts.contacts as contacts
+import scripts.classes as classes
 
 
 def main():
