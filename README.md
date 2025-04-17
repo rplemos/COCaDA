@@ -88,6 +88,10 @@ The code includes a customized parser for both **PDB** and **CIF** files, with s
 | `-d`, `--distances` | **(Optional)** Reads custom cutoff distances from the [`contact_distances.json`](contact_distances.json) configuration file. <br>By default, predefined values are used. |
 | `-h`, `--help` | Shows help and usage instructions. |
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/e6ee3153-9b2c-47a2-b57c-4f63f206a34b" alt="COCaDA_overview">
+</p>
+
 ---
 
 ## 📄 License
