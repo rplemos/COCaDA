@@ -97,6 +97,7 @@ def validate_file(value):
         raise ArgumentTypeError(f"{value} is not a valid file. File must end with '.pdb' or '.cif'")
 
 
+
 def validate_core(value, ncores):
     """
     Validates the --core argument to ensure it follows the correct format.
@@ -112,12 +113,12 @@ def validate_core(value, ncores):
     Raises:
         ArgumentTypeError: If the input is not valid or exceeds available cores.
     """
-    # Check if it's a single core
+    # Check if it's a single number representing the number of cores to use
     if value.isdigit():
-        core = int(value)
-        if core < 0 or core >= ncores:
-            raise ArgumentTypeError(f"Core number {core} exceeds available cores (max: {ncores - 1})")
-        return [core]
+        core_count = int(value)
+        if core_count <= 0 or core_count > ncores:
+            raise ArgumentTypeError(f"Requested number of cores {core_count} exceeds available cores (max: {ncores})")
+        return core_count
     
     # Check if it's a range (e.g. 10-19)
     range_match = re.match(r'^(\d+)-(\d+)$', value)
