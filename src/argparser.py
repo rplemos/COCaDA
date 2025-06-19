@@ -9,6 +9,7 @@ from sys import exit
 from argparse import ArgumentParser, ArgumentError, ArgumentTypeError
 from multiprocessing import cpu_count
 import re
+import json
 
 
 def cl_parse():
@@ -35,7 +36,7 @@ def cl_parse():
         parser.add_argument('-o', '--output', required=False, nargs='?', const='./outputs', help='Outputs the results to files in the given folder. Default is ./outputs.')
         parser.add_argument('-r', '--region', required=False, nargs='?', help='Define only a region of residues to be analyzed. Selections can be defined based on the following: -r X-Y = range of residues from X to Y. -r X,Y,Z... = specific multiple residues.')
         parser.add_argument('-i', '--interface', required=False, nargs='?', const='interface.csv', help='Calculate only interface contacts.')        
-        parser.add_argument('-d', '--distances', required=False, action='store_true', help='Processes custom contact distances based on the "contact_distances.txt" file.')
+        parser.add_argument('-d', '--distances', nargs='?', type=validate_distances, default=False, help='Processes custom contact distances based on the "contact_distances.txt" file.')
         parser.add_argument('-ph', '--ph', type=validate_ph, default=None, help='pH value (0-14)')
         parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
 
@@ -199,3 +200,53 @@ def validate_ph(value):
     if not (0.0 <= ph <= 14.0):
         raise ArgumentTypeError(f"Invalid pH: Must be between 0 and 14 (got {ph}).")
     return ph
+
+
+def validate_distances(value):
+    distance_keys = [
+        'salt_bridge',
+        'hydrophobic',
+        'hydrogen_bond',
+        'repulsive',
+        'attractive',
+        'disulfide_bond',
+        'aromatic'
+    ]
+
+    print(value)
+    print(type(value))
+    loaded_distances = {}
+    
+    def validate_categories(categories): 
+        for key, (min_val, max_val) in categories.items():
+            if min_val < 0 or max_val < 0:
+                raise ValueError(f"Invalid values for '{key}': values must be positive.")
+            if min_val >= max_val:
+                raise ValueError(f"Invalid range for '{key}': min ({min_val}) must be less than max ({max_val}).")
+        return categories
+
+    if value is True:  # User passed just '-d' with no value → JSON mode
+        try:
+            with open("./contact_distances.json", "r") as f:
+                loaded_distances = json.load(f)
+        except Exception as e:
+            raise ArgumentTypeError(f"Error loading JSON file: {e}")
+    else:  # User passed 14 comma-separated values
+        parts = value.split(',')
+        if len(parts) != 14:
+            raise ArgumentTypeError(f"Expected 14 comma-separated distance values, got {len(parts)}.")
+        try:
+            floats = [float(x) for x in parts]
+        except ValueError:
+            raise ArgumentTypeError(f"All distance values must be numeric floats. Got: {parts}")
+        
+        for i, key in enumerate(distance_keys):
+            start = i*2
+            loaded_distances[key] = [floats[start], floats[start + 1]]
+     
+    try:
+        validated_distances = validate_categories({key: tuple(value) for key, value in loaded_distances.items()})  
+    except ValueError:
+        raise ArgumentTypeError("Invalid!")
+
+    return validated_distances

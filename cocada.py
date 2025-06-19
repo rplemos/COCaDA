@@ -6,7 +6,6 @@ License: MIT License
 """
 
 import os
-import json
 from timeit import default_timer as timer
 
 import src.argparser as argparser
@@ -53,18 +52,9 @@ def main():
         
     if custom_distances:
         process.log("Using custom distances provided by the user.", silent)
-        with open("./contact_distances.json","r") as f:
-            loaded_distances = json.load(f)
-        try:
-            validated_distances = process.validate_categories({key: tuple(value) for key, value in loaded_distances.items()})
-            max_value = max(y for x in validated_distances.values() for y in x)
-            if max_value > 6:
-                context.epsilon = max_value - 6
-        except ValueError as e:
-            process.log(e)  
-            exit(1)
-            
-        context.custom_distances = validated_distances
+        max_value = max(y for x in custom_distances.values() for y in x)
+        if max_value > 6:
+            context.epsilon = max_value - 6
 
     process.log("\n", silent)
     process_func = process.single if core is None else process.multi_batch
