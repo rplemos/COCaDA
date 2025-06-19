@@ -24,7 +24,7 @@ def single(file_list, context):
     for file in file_list:
         try:
             result = process_file(file, context)
-            process_result(result, context.output, context.silent)
+            process_result(result, context)
         except Exception as e:
             log(f"Error: {e}")
 
@@ -56,7 +56,7 @@ def multi_batch(file_list, context):
          
         batch_size = max(1, len(file_list) // num_cores)
         log(f"Number of files: {len(file_list)} | Batch size: {batch_size} files per core", context.silent)
-        log(context.silent)
+        log("\n", context.silent)
         
         with ProcessPoolExecutor(max_workers=num_cores) as executor:
             futures = {executor.submit(process_batch, batch, context): batch
@@ -85,7 +85,7 @@ def process_batch(batch, context):
     for file_path in batch:
         result = process_file(file_path, context)
         if result:
-            process_result(result, context.output, context.silent)
+            process_result(result, context)
 
 
 def batch_generator(file_list, batch_size):
@@ -131,26 +131,26 @@ def process_file(file_path, context):
             return None
 
         if context.ph is None:
+            uncertainty_flags, local_contact_types = contacts.change_protonation(ph, context.silent)
             if ph != 7.4:
                 log(f"Found experimental protein pH value at {ph}. You can change this using the -ph flag.", context.silent)
                 log(f"Changing protonation states of pH-sensitive atoms using pH value of {ph}.", context.silent)
-                uncertaintity_flags = contacts.change_protonation(ph, context.silent)
             else:
                 log("Defaulting pH value to 7.4.", context.silent)
-                uncertaintity_flags = contacts.change_protonation(ph, context.silent)
         else:
-            uncertaintity_flags = context.uncertainty_flags
+            uncertainty_flags, local_contact_types = contacts.change_protonation(context.ph, context.silent)
             
-        contacts_list, interface_res, count_contacts, uncertain_results = contacts.contact_detection(parsed_data, context.region, context.interface, context.custom_distances, context.epsilon, uncertaintity_flags)
+        contacts_list, interface_res, count_contacts, uncertain_results = contacts.contact_detection(parsed_data, context.region, context.interface, context.custom_distances, context.epsilon, uncertainty_flags, local_contact_types)
         process_time = timer() - start_time
-        return parsed_data, contacts_list, process_time, interface_res, count_contacts, uncertain_results
+        
+        return parsed_data, contacts_list, process_time, interface_res, count_contacts, uncertain_results, ph
 
     except Exception as e:
         log(f"Error processing {file_path}: {e}")
         return None
 
 
-def process_result(result, output, silent):
+def process_result(result, context):
     """
     Handles the result of processing a file.
 
@@ -159,26 +159,30 @@ def process_result(result, output, silent):
         output (str): The directory where output files will be saved.
     """
     if result:
-        protein, contacts_list, process_time, interface_res, count_contacts, uncertain_contacts = result
-        output_data = f"ID: {protein.id} | Size: {protein.true_count():<7} | Contacts: {len(contacts_list):<7} | Time: {process_time:.3f}s"
+        protein, contacts_list, process_time, interface_res, count_contacts, uncertain_contacts, ph = result
+        output, silent = context.output, context.silent
+        ph = ph if context.ph is None else context.ph
+        
+        output_data = f"ID: {protein.id} | Size: {protein.true_count():<7} | Contacts: {len(contacts_list):<7} | pH: {ph} | Time: {process_time:.3f}s"
         count = '; '.join(f"{v[0]}: {v[1]:>5}" for v in count_contacts.values())
         log(output_data)
         log(f"{count}\n", silent)
         
         if output:
-            output_folder = f"{output}/{protein.id}/"
+            output_folder = f"{output}/"
             
             if not os.path.exists(output_folder):
                 os.makedirs(output_folder)
             
             with open(f"{output_folder}/{protein.id}_contacts.csv","w") as f:
                 f.write(contacts.show_contacts(contacts_list))
-                
-            with open(f"{output_folder}/{protein.id}_uncertain_contacts.csv","w") as f:
-                f.write("The side-chain pKa value of at least one residue is within +-1.0 of pH value.\n")
-                f.write("Chain1,Res1,ResName1,Atom1,Chain2,Res2,ResName2,Atom2,Distance,Type\n")
-                for line in uncertain_contacts:
-                    f.write(f"{line.print_text()}\n")
+            
+            if uncertain_contacts:    
+                with open(f"{output_folder}/{protein.id}_uncertain_contacts.csv","w") as f:
+                    f.write(f"The side-chain pKa value of at least one residue is within +-1.0 of used pH value ({ph}).\n")
+                    f.write("Chain1,Res1,ResName1,Atom1,Chain2,Res2,ResName2,Atom2,Distance,Type\n")
+                    for line in uncertain_contacts:
+                        f.write(f"{line.print_text()}\n")
             
             ### Created for COCaDA_speed ###
             # with open(f"{output_folder}/{protein.id}_interface.csv", "w") as f:

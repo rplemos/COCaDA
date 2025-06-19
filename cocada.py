@@ -47,7 +47,7 @@ def main():
         output = None
         
     if ph:
-        process.log(f"Changing protonation states of pH-sensitive atoms using pH value of {ph}.\n", context.silent)
+        process.log(f"Changing protonation states of pH-sensitive atoms using pH value of {ph}.\n", silent)
         uncertaintity_flags = change_protonation(context.ph, context.silent)
         context.uncertainty_flags = uncertaintity_flags
         
@@ -66,6 +66,7 @@ def main():
             
         context.custom_distances = validated_distances
 
+    process.log("\n", silent)
     process_func = process.single if core is None else process.multi_batch
     process_func(file_list, context)
     

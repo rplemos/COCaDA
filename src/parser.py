@@ -10,6 +10,7 @@ from src.classes import Protein, Chain, Residue, Atom
 import os
 from numpy import mean, array
 from numpy.linalg import svd
+import re
 
 
 stacking = {
@@ -49,6 +50,8 @@ def parse_pdb(pdb_file):
     current_entity = None
     entity_chains = {}
     entity = None
+    ph = 7.4
+    ph_pattern = re.compile(r'\bPH\b\s*[:\s]\s*([-+]?\d*\.\d+|\d+)')
 
     with open(pdb_file) as f:
         
@@ -73,6 +76,15 @@ def parse_pdb(pdb_file):
                 
             elif line.startswith("TITLE"):
                 current_protein.set_title(line[10:])
+            
+            # remark 200 = x-ray; remark 210,215,217 = NMR
+            elif line.startswith("REMARK 200") or line.startswith("REMARK 21"):
+                match = ph_pattern.search(line)
+                if match:
+                    ph_str = match.group(1)
+                    if '-' in ph_str or '/' in ph_str or 'NULL' in line.upper():
+                        continue
+                    ph = float(ph_str)
                 
             elif line.startswith("ATOM"):
                 chain_id = line[21]
@@ -156,7 +168,7 @@ def parse_pdb(pdb_file):
                     id = id.split(".")[0]
                     current_protein.id = id  
     
-    return current_protein
+    return current_protein, ph
 
 
 def parse_cif(cif_file):
