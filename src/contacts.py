@@ -14,7 +14,7 @@ from src.distances import distances
 import src.conditions as conditions
 
 
-def contact_detection(protein, region, interface, custom_distances, epsilon):
+def contact_detection(protein, region, interface, custom_distances, epsilon, uncertainty_flags):
     """
     Detects contacts between atoms in a given protein.
 
@@ -28,6 +28,7 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
     residues = list(protein.get_residues())
     contacts = []
     interface_res = []
+    uncertain_contacts = []
     max_ca_distance = 20.47 # 0.01 higher than the Arg-Arg pair
     
     count_contacts = {
@@ -39,7 +40,7 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
         "disulfide_bond":["DS",0],
         "stacking":["AS",0],
     }
-    
+        
     categories = custom_distances if custom_distances else conditions.categories
     if epsilon > 0:
         max_ca_distance += epsilon
@@ -124,30 +125,34 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
 
                                 if contact_type == 'hydrogen_bond' and (abs(residue2.resnum - residue1.resnum) <= 3): # skips alpha-helix for h-bonds
                                     continue
-                                                               
-                                # props1 = conditions.contact_types[name1]
-                                # props2 = conditions.contact_types[name2]
-                                # if contact_type in ['attractive','repulsive','salt_bridge']:
-                                #     uncertain1 = '01' in str(conditions.contact_types[name1])
-                                #     uncertain2 = '01' in str(conditions.contact_types[name2])
-                                #     if uncertain1 or uncertain2:
-                                #         handle_uncertain(props1, props2)
-                                #         continue
-                                
+
                                 if distance_range[0] <= distance <= distance_range[1]: # fits the range
-                                    
-                                    if conditions.contact_conditions[contact_type](name1, name2): # fits the type of contact
+
+                                    def get_props(name):
+                                        if name in uncertainty_flags and contact_type in ['attractive','repulsive','salt_bridge']:
+                                            return resolve_uncertainty(name, uncertainty_flags)
+                                        elif contact_type == 'disulfide_bond':
+                                            return name
+                                        return conditions.contact_types[name]
+
+                                    props1 = get_props(name1)
+                                    props2 = get_props(name2)
+                                
+                                    if conditions.contact_conditions[contact_type](props1, props2): # fits the type of contact
                                                                                                 
                                         contact = Contact(protein.id, residue1.chain.id, residue1.resnum, residue1.resname, atom1.atomname, 
                                                         protein.id, residue2.chain.id, residue2.resnum, residue2.resname, atom2.atomname, 
                                                         float(f"{distance:.2f}"), contact_type, atom1, atom2)
 
                                         contacts.append(contact)
+                                        if (name1 in uncertainty_flags or name2 in uncertainty_flags) and contact_type in ['attractive','repulsive','salt_bridge']:
+                                            uncertain_contacts.append(contact)
+                                            
                                         count_contacts[contact_type][1] += 1
-                                        
-                                        #interface_res.add(f"{residue1.chain.id},{residue1.resnum},{residue1.resname}")
-                                                
-    return contacts, interface_res, count_contacts
+                                    
+                                    #interface_res.add(f"{residue1.chain.id},{residue1.resnum},{residue1.resname}")
+                                            
+    return contacts, interface_res, count_contacts, uncertain_contacts
 
 
 def show_contacts(contacts):
@@ -212,6 +217,8 @@ def change_protonation(ph, silent):
         'Y': ['OH'],
     }
     
+    uncertainty_flags = {}
+    
     for key, value in conditions.contact_types.items():
         resname, atomname = key.split(":")
         if resname in pka_table and atomname in pH_sensitive_atoms.get(resname, []):
@@ -221,10 +228,13 @@ def change_protonation(ph, silent):
             original_pos = value[2]
             original_neg = value[3]
             
+            new_pos, new_neg = original_pos, original_neg  # Default: no change            
+            
             if resname in ['D', 'E', 'C', 'Y']:  # Acidic
                 if delta < 1.0:
                     new_pos = 0
-                    new_neg = '01'
+                    new_neg = 0
+                    uncertainty_flags[key] = {'neg': True}
                 else:
                     is_deprotonated = ph > pka
                     new_pos = 0
@@ -232,8 +242,9 @@ def change_protonation(ph, silent):
 
             elif resname in ['R', 'K', 'H']:  # Basic
                 if delta < 1.0:
-                    new_pos = '01'
+                    new_pos = 0
                     new_neg = 0
+                    uncertainty_flags[key] = {'pos': True}
                 else:
                     is_protonated = ph < pka
                     new_pos = 1 if is_protonated else 0
@@ -244,51 +255,17 @@ def change_protonation(ph, silent):
                 value[2] = new_pos
                 value[3] = new_neg
 
-def handle_uncertain(props1, props2):
+    log("\n", silent)
+    return uncertainty_flags
 
-    pos1_list = [props1[2]]  # Default: single value
-    neg1_list = [props1[3]]
-    pos2_list = [props2[2]]
-    neg2_list = [props2[3]]
 
-    # Only expand lists if the flag contains '01'
-    if isinstance(props1[2], str):
-        pos1_list = [int(x) for x in props1[2]]
-    elif isinstance(props1[3], str):
-        neg1_list = [int(x) for x in props1[3]]
-
-    if isinstance(props2[2], str):
-        pos2_list = [int(x) for x in props2[2]]
-    elif isinstance(props2[3], str):
-        neg2_list = [int(x) for x in props2[3]]
+def resolve_uncertainty(name, uncertainty_flags):
+    flags = uncertainty_flags[name]
+    new_atom_props = list(conditions.contact_types[name])    
     
-    if (pos1_list and neg1_list) == [0] or (pos2_list and neg2_list) == [0]:
-        return
- 
-    #print(pos1_list, neg1_list, pos2_list, neg2_list)
-    #print(len(pos1_list), len(neg1_list), len(pos2_list), len(neg2_list))    
-    
-    for pos1 in pos1_list:
-        for neg1 in neg1_list:
-            for pos2 in pos2_list:
-                for neg2 in neg2_list:
-                    temp_props1 = list(props1)
-                    temp_props2 = list(props2)
-                    temp_props1[2] = pos1
-                    temp_props1[3] = neg1
-                    temp_props2[2] = pos2
-                    temp_props2[3] = neg2
-                    
-                    # if conditions.contact_conditions[contact_type](temp_props1, temp_props2):
-                    #     contact = Contact(protein.id, residue1.chain.id, residue1.resnum, residue1.resname, atom1.atomname, 
-                    #                     protein.id, residue2.chain.id, residue2.resnum, residue2.resname, atom2.atomname, 
-                    #                     float(f"{distance:.2f}"), contact_type, atom1, atom2)
+    if flags.get('pos'):
+        new_atom_props[2] = 1
+    elif flags.get('neg'):
+        new_atom_props[3] = 1
 
-                    #     contacts.append(contact)
-                    #     count_contacts[contact_type][1] += 1
-
-    # print(props1, props2)
-    # print("\t",pos1_list)
-    # print("\t",neg1_list)
-    # print("\t\t",pos2_list)
-    # print("\t\t",neg2_list)        
+    return new_atom_props

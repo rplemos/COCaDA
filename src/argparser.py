@@ -36,7 +36,7 @@ def cl_parse():
         parser.add_argument('-r', '--region', required=False, nargs='?', help='Define only a region of residues to be analyzed. Selections can be defined based on the following: -r X-Y = range of residues from X to Y. -r X,Y,Z... = specific multiple residues.')
         parser.add_argument('-i', '--interface', required=False, nargs='?', const='interface.csv', help='Calculate only interface contacts.')        
         parser.add_argument('-d', '--distances', required=False, action='store_true', help='Processes custom contact distances based on the "contact_distances.txt" file.')
-        parser.add_argument('-ph', '--ph', type=validate_ph, default=7.4, help='pH value (0-14)')
+        parser.add_argument('-ph', '--ph', type=validate_ph, default=None, help='pH value (0-14)')
         parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
 
         args = parser.parse_args()

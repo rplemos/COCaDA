@@ -130,20 +130,20 @@ def process_file(file_path, context):
                     f.write(f"{parsed_data.id},{parsed_data.title},{parsed_data.true_count()},x\n")
             return None
 
-        if ph == 7.4 and context.ph != 7.4:
-            log(f"Changing protonation states of pH-sensitive atoms using pH value of {context.ph}.\n", context.silent)
-            contacts.change_protonation(context.ph, context.silent)
-        elif ph != 7.4 and context.ph == 7.4:
-            log(f"Found experimental protein pH value at {ph}. You can change this using the -ph flag.", context.silent)
-            log(f"Changing protonation states of pH-sensitive atoms using pH value of {ph}.\n", context.silent)
-            contacts.change_protonation(ph, context.silent)
+        if context.ph is None:
+            if ph != 7.4:
+                log(f"Found experimental protein pH value at {ph}. You can change this using the -ph flag.", context.silent)
+                log(f"Changing protonation states of pH-sensitive atoms using pH value of {ph}.", context.silent)
+                uncertaintity_flags = contacts.change_protonation(ph, context.silent)
+            else:
+                log("Defaulting pH value to 7.4.", context.silent)
+                uncertaintity_flags = contacts.change_protonation(ph, context.silent)
         else:
-            log("Defaulting pH value to 7.4.", context.silent)
-        log("\n",context.silent)
+            uncertaintity_flags = context.uncertainty_flags
             
-        contacts_list, interface_res, count_contacts = contacts.contact_detection(parsed_data, context.region, context.interface, context.custom_distances, context.epsilon)
+        contacts_list, interface_res, count_contacts, uncertain_results = contacts.contact_detection(parsed_data, context.region, context.interface, context.custom_distances, context.epsilon, uncertaintity_flags)
         process_time = timer() - start_time
-        return parsed_data, contacts_list, process_time, interface_res, count_contacts
+        return parsed_data, contacts_list, process_time, interface_res, count_contacts, uncertain_results
 
     except Exception as e:
         log(f"Error processing {file_path}: {e}")
@@ -159,11 +159,11 @@ def process_result(result, output, silent):
         output (str): The directory where output files will be saved.
     """
     if result:
-        protein, contacts_list, process_time, interface_res, count_contacts = result
+        protein, contacts_list, process_time, interface_res, count_contacts, uncertain_contacts = result
         output_data = f"ID: {protein.id} | Size: {protein.true_count():<7} | Contacts: {len(contacts_list):<7} | Time: {process_time:.3f}s"
         count = '; '.join(f"{v[0]}: {v[1]:>5}" for v in count_contacts.values())
         log(output_data)
-        log(count, silent)
+        log(f"{count}\n", silent)
         
         if output:
             output_folder = f"{output}/{protein.id}/"
@@ -173,6 +173,12 @@ def process_result(result, output, silent):
             
             with open(f"{output_folder}/{protein.id}_contacts.csv","w") as f:
                 f.write(contacts.show_contacts(contacts_list))
+                
+            with open(f"{output_folder}/{protein.id}_uncertain_contacts.csv","w") as f:
+                f.write("The side-chain pKa value of at least one residue is within +-1.0 of pH value.\n")
+                f.write("Chain1,Res1,ResName1,Atom1,Chain2,Res2,ResName2,Atom2,Distance,Type\n")
+                for line in uncertain_contacts:
+                    f.write(f"{line.print_text()}\n")
             
             ### Created for COCaDA_speed ###
             # with open(f"{output_folder}/{protein.id}_interface.csv", "w") as f:

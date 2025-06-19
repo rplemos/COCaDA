@@ -12,6 +12,7 @@ from timeit import default_timer as timer
 import src.argparser as argparser
 import src.classes as classes
 import src.process as process
+from src.contacts import change_protonation
 
 def main():
     """
@@ -44,6 +45,11 @@ def main():
             os.makedirs(output)
     else:
         output = None
+        
+    if ph:
+        process.log(f"Changing protonation states of pH-sensitive atoms using pH value of {ph}.\n", context.silent)
+        uncertaintity_flags = change_protonation(context.ph, context.silent)
+        context.uncertainty_flags = uncertaintity_flags
         
     if custom_distances:
         process.log("Using custom distances provided by the user.", silent)
