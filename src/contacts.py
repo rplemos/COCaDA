@@ -27,8 +27,18 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
 
     residues = list(protein.get_residues())
     contacts = []
-    interface_res = set()
+    interface_res = []
     max_ca_distance = 20.47 # 0.01 higher than the Arg-Arg pair
+    
+    count_contacts = {
+        "hydrogen_bond":["HB",0],
+        "hydrophobic":["HY",0],
+        "attractive":["AT",0],
+        "repulsive":["RE",0],
+        "salt_bridge":["SB",0],
+        "disulfide_bond":["DS",0],
+        "stacking":["AS",0],
+    }
     
     categories = custom_distances if custom_distances else conditions.categories
     if epsilon > 0:
@@ -36,6 +46,11 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
         updated_distances = {key: value + epsilon for key, value in distances.items()}
     else:
         updated_distances = distances
+    
+    if interface:
+        with open(interface,"r") as f:
+            for line in f:
+                interface_res.append(line.strip())
         
     for i, residue1 in enumerate(residues[1:]):
         for _, residue2 in enumerate(residues[i+1:], start=i+1):
@@ -84,19 +99,23 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
                                     protein.id, residue2.chain.id, residue2.resnum, residue2.resname, ring2.atomname, 
                                     float(f"{distance:.2f}"), "stacking"+stack_type, ring1, ring2)
                     
+                    count_contacts['stacking'][1] += 1
+                    
                     contacts.append(contact)
                     
             for atom1 in residue1.atoms:
                 for atom2 in residue2.atoms:
                     
-                    if interface and atom1.entity == atom2.entity:
-                        continue
+                    if interface:
+                        residue_interface_key = f"{residue1.chain.id},{residue1.resnum},{residue1.resname}"
+                        if (atom1.entity == atom2.entity) or (residue_interface_key not in interface_res):
+                            continue
                     
                     name1 = f"{atom1.residue.resname}:{atom1.atomname}" # matches the pattern from conditions dictionary
                     name2 = f"{atom2.residue.resname}:{atom2.atomname}"
 
                     if name1 in conditions.contact_types and name2 in conditions.contact_types: # excludes the RNG atom and any different other
-                        
+
                         distance = dist((atom1.x, atom1.y, atom1.z), (atom2.x, atom2.y, atom2.z))
                         
                         if distance <= 6: # max distance for contacts
@@ -105,8 +124,18 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
 
                                 if contact_type == 'hydrogen_bond' and (abs(residue2.resnum - residue1.resnum) <= 3): # skips alpha-helix for h-bonds
                                     continue
+                                                               
+                                # props1 = conditions.contact_types[name1]
+                                # props2 = conditions.contact_types[name2]
+                                # if contact_type in ['attractive','repulsive','salt_bridge']:
+                                #     uncertain1 = '01' in str(conditions.contact_types[name1])
+                                #     uncertain2 = '01' in str(conditions.contact_types[name2])
+                                #     if uncertain1 or uncertain2:
+                                #         handle_uncertain(props1, props2)
+                                #         continue
                                 
                                 if distance_range[0] <= distance <= distance_range[1]: # fits the range
+                                    
                                     if conditions.contact_conditions[contact_type](name1, name2): # fits the type of contact
                                                                                                 
                                         contact = Contact(protein.id, residue1.chain.id, residue1.resnum, residue1.resname, atom1.atomname, 
@@ -114,9 +143,11 @@ def contact_detection(protein, region, interface, custom_distances, epsilon):
                                                         float(f"{distance:.2f}"), contact_type, atom1, atom2)
 
                                         contacts.append(contact)
+                                        count_contacts[contact_type][1] += 1
                                         
-                                        interface_res.add(f"{residue1.chain.id},{residue1.resnum},{residue1.resname}")
-    return contacts, interface_res
+                                        #interface_res.add(f"{residue1.chain.id},{residue1.resnum},{residue1.resname}")
+                                                
+    return contacts, interface_res, count_contacts
 
 
 def show_contacts(contacts):
@@ -156,3 +187,108 @@ def calc_angle(vector1, vector2):
     angle = arccos(dot_product / magnitude_product) # angle in radians   
     
     return degrees(angle)
+
+
+def change_protonation(ph, silent):
+    from src.process import log
+    
+    pka_table = {
+        'R': 12.48,
+        'K': 10.79,
+        'H': 6.04,
+        'D': 3.86,
+        'E': 4.25,
+        'C': 8.33,
+        'Y': 10.07,
+    }
+    
+    pH_sensitive_atoms = {
+        'R': ['NE', 'CZ', 'NH1', 'NH2'],
+        'K': ['NZ'],
+        'H': ['ND1', 'NE2'],
+        'D': ['OD1', 'OD2'],
+        'E': ['OE1', 'OE2'],
+        'C': ['SG'],
+        'Y': ['OH'],
+    }
+    
+    for key, value in conditions.contact_types.items():
+        resname, atomname = key.split(":")
+        if resname in pka_table and atomname in pH_sensitive_atoms.get(resname, []):
+            pka = pka_table[resname]
+            delta = abs(ph - pka)
+            
+            original_pos = value[2]
+            original_neg = value[3]
+            
+            if resname in ['D', 'E', 'C', 'Y']:  # Acidic
+                if delta < 1.0:
+                    new_pos = 0
+                    new_neg = '01'
+                else:
+                    is_deprotonated = ph > pka
+                    new_pos = 0
+                    new_neg = 1 if is_deprotonated else 0
+
+            elif resname in ['R', 'K', 'H']:  # Basic
+                if delta < 1.0:
+                    new_pos = '01'
+                    new_neg = 0
+                else:
+                    is_protonated = ph < pka
+                    new_pos = 1 if is_protonated else 0
+                    new_neg = 0
+                        
+            if (original_pos != new_pos) or (original_neg != new_neg):
+                log(f"pH {ph:.2f} - {key}: (+{original_pos}, -{original_neg}) → (+{new_pos}, -{new_neg}) - pka: {pka_table[resname]}", silent)
+                value[2] = new_pos
+                value[3] = new_neg
+
+def handle_uncertain(props1, props2):
+
+    pos1_list = [props1[2]]  # Default: single value
+    neg1_list = [props1[3]]
+    pos2_list = [props2[2]]
+    neg2_list = [props2[3]]
+
+    # Only expand lists if the flag contains '01'
+    if isinstance(props1[2], str):
+        pos1_list = [int(x) for x in props1[2]]
+    elif isinstance(props1[3], str):
+        neg1_list = [int(x) for x in props1[3]]
+
+    if isinstance(props2[2], str):
+        pos2_list = [int(x) for x in props2[2]]
+    elif isinstance(props2[3], str):
+        neg2_list = [int(x) for x in props2[3]]
+    
+    if (pos1_list and neg1_list) == [0] or (pos2_list and neg2_list) == [0]:
+        return
+ 
+    #print(pos1_list, neg1_list, pos2_list, neg2_list)
+    #print(len(pos1_list), len(neg1_list), len(pos2_list), len(neg2_list))    
+    
+    for pos1 in pos1_list:
+        for neg1 in neg1_list:
+            for pos2 in pos2_list:
+                for neg2 in neg2_list:
+                    temp_props1 = list(props1)
+                    temp_props2 = list(props2)
+                    temp_props1[2] = pos1
+                    temp_props1[3] = neg1
+                    temp_props2[2] = pos2
+                    temp_props2[3] = neg2
+                    
+                    # if conditions.contact_conditions[contact_type](temp_props1, temp_props2):
+                    #     contact = Contact(protein.id, residue1.chain.id, residue1.resnum, residue1.resname, atom1.atomname, 
+                    #                     protein.id, residue2.chain.id, residue2.resnum, residue2.resname, atom2.atomname, 
+                    #                     float(f"{distance:.2f}"), contact_type, atom1, atom2)
+
+                    #     contacts.append(contact)
+                    #     count_contacts[contact_type][1] += 1
+
+    # print(props1, props2)
+    # print("\t",pos1_list)
+    # print("\t",neg1_list)
+    # print("\t\t",pos2_list)
+    # print("\t\t",neg2_list)        

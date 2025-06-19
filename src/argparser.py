@@ -34,8 +34,10 @@ def cl_parse():
         parser.add_argument('-m', '--multicore', required=False, nargs='?', const=0, help='Use MultiCore mode. Default uses all available cores, and selections can be defined based on the following: -m X = specific single core. -m X-Y = range of cores from X to Y. -m X,Y,Z... = specific multiple cores.')
         parser.add_argument('-o', '--output', required=False, nargs='?', const='./outputs', help='Outputs the results to files in the given folder. Default is ./outputs.')
         parser.add_argument('-r', '--region', required=False, nargs='?', help='Define only a region of residues to be analyzed. Selections can be defined based on the following: -r X-Y = range of residues from X to Y. -r X,Y,Z... = specific multiple residues.')
-        parser.add_argument('-i', '--interface', required=False, action='store_true', help='Calculate only interface contacts.')
+        parser.add_argument('-i', '--interface', required=False, nargs='?', const='interface.csv', help='Calculate only interface contacts.')        
         parser.add_argument('-d', '--distances', required=False, action='store_true', help='Processes custom contact distances based on the "contact_distances.txt" file.')
+        parser.add_argument('-ph', '--ph', type=validate_ph, default=7.4, help='pH value (0-14)')
+        parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
 
         args = parser.parse_args()
 
@@ -43,6 +45,8 @@ def cl_parse():
         output = args.output
         interface = args.interface
         distances = args.distances
+        ph = args.ph
+        silent = args.silent
                 
         ncores = cpu_count()
         multi = args.multicore
@@ -72,7 +76,7 @@ def cl_parse():
         print(f"An unexpected error occurred: {str(e)}")
         exit(1)
     
-    return files, core, output, region, interface, distances
+    return files, core, output, region, interface, distances, ph, silent
         
         
 def validate_file(value):
@@ -171,3 +175,27 @@ def validate_region(region):
         return res_list
     
     raise ArgumentTypeError(f"Invalid region format: {region}. Use a range (x-y) or a list (x,y,z).")
+
+
+def validate_ph(value):
+    """
+    Validates the pH argument from the command line, ensuring that the provided value 
+    is a valid floating-point number within the acceptable range (0.0 to 14.0).
+
+    Parameters:
+        value (str): The pH value as a string (from command-line input).
+
+    Returns:
+        float: The validated pH value as a float.
+
+    Raises:
+        ArgumentTypeError: If the input is not a number or is outside the 0–14 range.
+    """
+    
+    try:
+        ph = float(value)
+    except ValueError:
+        raise ArgumentTypeError(f"Invalid pH value: '{value}' is not a number.")
+    if not (0.0 <= ph <= 14.0):
+        raise ArgumentTypeError(f"Invalid pH: Must be between 0 and 14 (got {ph}).")
+    return ph

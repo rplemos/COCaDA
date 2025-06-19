@@ -13,7 +13,6 @@ import src.argparser as argparser
 import src.classes as classes
 import src.process as process
 
-
 def main():
     """
     Main function for the script.
@@ -24,30 +23,30 @@ def main():
     """
     global_time_start = timer()
     
-    file_list, core, output, region, interface, custom_distances = argparser.cl_parse()
+    file_list, core, output, region, interface, custom_distances, ph, silent = argparser.cl_parse()
     
-    print("--------------COCaDA----------------\n")
+    process.log("\n--------------COCaDA----------------\n", silent)
     
     # context object for shared parameters
-    context = classes.ProcessingContext(core=core, output=output, region=region, interface=interface, custom_distances=custom_distances)
+    context = classes.ProcessingContext(core=core, output=output, region=region, interface=interface, custom_distances=custom_distances, ph=ph, silent=silent)
     
     if core is not None:  # Set specific core affinity
-        print("Multicore mode selected")
+        process.log("Multicore mode selected.", silent)
     else:
-        print("Running on single mode with no specific core.")
+        process.log("Running on single mode with no specific core.", silent)
 
     if interface:
-        print("Calculating only interface contacts.") 
+        process.log("Calculating only interface contacts.", silent) 
                
     if output:
-        print(f"Generating outputs in '{output}' folder.")
+        process.log(f"Generating outputs in '{output}' folder.", silent)
         if not os.path.exists(output):
             os.makedirs(output)
     else:
         output = None
         
     if custom_distances:
-        print("Using custom distances provided by the user.")
+        process.log("Using custom distances provided by the user.", silent)
         with open("./contact_distances.json","r") as f:
             loaded_distances = json.load(f)
         try:
@@ -56,17 +55,16 @@ def main():
             if max_value > 6:
                 context.epsilon = max_value - 6
         except ValueError as e:
-            print(e)  
+            process.log(e)  
             exit(1)
             
         context.custom_distances = validated_distances
 
-    print()
     process_func = process.single if core is None else process.multi_batch
     process_func(file_list, context)
     
-    print("\n------------------------------------\n")
-    print(f"Total time elapsed: {(timer() - global_time_start):.3f}s\n")
+    process.log("\n------------------------------------\n", silent)
+    process.log(f"Total time elapsed: {(timer() - global_time_start):.3f}s\n", silent)
 
 
 if __name__ == "__main__":

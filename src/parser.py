@@ -155,7 +155,7 @@ def parse_pdb(pdb_file):
                     id = str(pdb_file).split("/")[-1]
                     id = id.split(".")[0]
                     current_protein.id = id  
-
+    
     return current_protein
 
 
@@ -186,6 +186,7 @@ def parse_cif(cif_file):
     models = []
     title = None
     title_block = False
+    ph = 7.4
 
     with open(cif_file) as f:
         
@@ -216,6 +217,12 @@ def parse_cif(cif_file):
                 else:
                     title += line.strip()
                     title_block = False
+                    
+            if line.startswith("_exptl_crystal_grow.pH") or line.startswith("_pdbx_nmr_exptl_sample_conditions.pH"):
+                try:
+                    ph = float(line.split()[1])
+                except ValueError:
+                    pass
 
             if line.startswith("_atom_site.group_PDB"): # entering ATOM definition block
                 atomsite_block = True
@@ -335,7 +342,8 @@ def parse_cif(cif_file):
         current_protein.set_title(title.title().replace("'","").replace('"','').replace(",","."))
     else:
         current_protein.set_title(None)
-    return current_protein
+    
+    return current_protein, ph
 
 
 def centroid(residue, ring_atoms, entity):

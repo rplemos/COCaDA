@@ -35,7 +35,6 @@ contact_conditions = {
     'aromatic': lambda name1, name2: (contact_types[name1][1] == 2 and contact_types[name2][1] == 2) # aromatics are checked elsewhere
 }
 
-
 # 'RES:ATOM':	[	Hydrophobic,	Aromatic,	Positive,	Negative,	Donor,	Acceptor	]
 # 'A:CA':		[	0|1,			0|1,		0|1,		0|1,		0|1,	0|1			]
 contact_types = { 
