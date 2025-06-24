@@ -199,9 +199,10 @@ def parse_cif(cif_file):
     title = None
     title_block = False
     ph = 7.4
+    nmr_expt = False
 
     with open(cif_file) as f:
-        
+
         current_protein.id = os.path.basename(cif_file).split(".")[0]
         
         for line in f:
@@ -229,12 +230,24 @@ def parse_cif(cif_file):
                 else:
                     title += line.strip()
                     title_block = False
-                    
-            if line.startswith("_exptl_crystal_grow.pH") or line.startswith("_pdbx_nmr_exptl_sample_conditions.pH"):
+
+            if line.startswith("_exptl_crystal_grow.pH"):
                 try:
                     ph = float(line.split()[1])
                 except ValueError:
                     pass
+                            
+            if line.startswith("_pdbx_nmr_exptl_sample_conditions.pH"):
+                try: 
+                    ph = float(line.split()[1])
+                except ValueError:
+                    pass
+                except IndexError:
+                    nmr_expt = True
+            
+            if nmr_expt and line.startswith("1"):
+                ph = float(line.split()[4])
+                nmr_expt = False
 
             if line.startswith("_atom_site.group_PDB"): # entering ATOM definition block
                 atomsite_block = True
@@ -244,8 +257,8 @@ def parse_cif(cif_file):
             elif atomsite_block and line.startswith("_atom_site"):
                 line = line.split(".")[1]
                 atom_lines.append(line)
-                
-            elif atomsite_block and line.startswith("ATOM"): # maps the order of the columns                             
+
+            elif atomsite_block and line.startswith("ATOM"): # maps the order of the columns
                 atomname_index = atom_lines.index("label_atom_id")
                 resname_index = atom_lines.index("label_comp_id")
                 chain_index = atom_lines.index("label_asym_id")
