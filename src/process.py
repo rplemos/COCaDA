@@ -163,7 +163,7 @@ def process_result(result, context):
         output, silent = context.output, context.silent
         ph = ph if context.ph is None else context.ph
         
-        output_data = f"ID: {protein.id} | Size: {protein.true_count():<7} | Contacts: {len(contacts_list):<7} | pH: {ph} | Time: {process_time:.3f}s"
+        output_data = f"ID: {protein.id} | Size: {protein.true_count():<7} | Contacts: {len(contacts_list):<7} | pH: {ph:.2f} | Time: {process_time:.3f}s"
         count = '; '.join(f"{v[0]}: {v[1]:>5}" for v in count_contacts.values())
         log(output_data)
         log(f"{count}\n", silent)
