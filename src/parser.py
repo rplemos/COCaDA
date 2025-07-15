@@ -76,15 +76,15 @@ def parse_pdb(pdb_file):
                 
             elif line.startswith("TITLE"):
                 current_protein.set_title(line[10:])
-            
-            # remark 200 = x-ray; remark 210,215,217 = NMR
+                
+            # remark 200 = x-ray; remark 210,215,217 = NMR    
             elif line.startswith("REMARK 200") or line.startswith("REMARK 21"):
                 match = ph_pattern.search(line)
                 if match:
                     ph_str = match.group(1)
                     if '-' in ph_str or '/' in ph_str or 'NULL' in line.upper():
                         continue
-                    ph = float(ph_str)
+                    ph = float(ph_str)                
                 
             elif line.startswith("ATOM"):
                 chain_id = line[21]
@@ -204,7 +204,7 @@ def parse_cif(cif_file):
     nmr_expt = False
 
     with open(cif_file) as f:
-
+        
         current_protein.id = os.path.basename(cif_file).split(".")[0]
         
         for line in f:
@@ -264,8 +264,8 @@ def parse_cif(cif_file):
             elif atomsite_block and line.startswith("_atom_site"):
                 line = line.split(".")[1]
                 atom_lines.append(line)
-
-            elif atomsite_block and line.startswith("ATOM"): # maps the order of the columns
+                
+            elif atomsite_block and line.startswith("ATOM"): # maps the order of the columns                             
                 atomname_index = atom_lines.index("label_atom_id")
                 resname_index = atom_lines.index("label_comp_id")
                 chain_index = atom_lines.index("label_asym_id")
@@ -286,7 +286,7 @@ def parse_cif(cif_file):
                 atomsite_block = False
                 atominfo_block = True
                 
-            elif line.startswith("ATOM") and atominfo_block: # entering ATOM information block
+            if line.startswith("ATOM") and atominfo_block: # entering ATOM information block
                 line = line.split()
                 
                 element = line[atom_element_index]

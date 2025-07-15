@@ -9,13 +9,14 @@ from math import dist
 from numpy import dot, arccos, degrees
 from numpy.linalg import norm
 from copy import deepcopy
+from collections import defaultdict
 
 from src.classes import Contact
 from src.distances import distances
 import src.conditions as conditions
 
 
-def contact_detection(protein, region, interface, custom_distances, epsilon, uncertainty_flags, local_contact_types):
+def contact_detection(protein, region, chains, interface, custom_distances, epsilon, uncertainty_flags, local_contact_types):
     """
     Detects contacts between atoms in a given protein.
 
@@ -31,17 +32,10 @@ def contact_detection(protein, region, interface, custom_distances, epsilon, unc
     interface_res = []
     uncertain_contacts = []
     max_ca_distance = 20.47 # 0.01 higher than the Arg-Arg pair
-    
-    count_contacts = {
-        "hydrogen_bond":["HB",0],
-        "hydrophobic":["HY",0],
-        "attractive":["AT",0],
-        "repulsive":["RE",0],
-        "salt_bridge":["SB",0],
-        "disulfide_bond":["DS",0],
-        "stacking":["AS",0],
-    }
-        
+
+    contacts_by_pair = defaultdict(list) # empty list under the key if it doesn't exist
+    contact_registry = defaultdict(set) # empty set under the key if it doesn't exist
+
     categories = custom_distances if custom_distances else conditions.categories
     if epsilon > 0:
         max_ca_distance += epsilon
@@ -63,6 +57,9 @@ def contact_detection(protein, region, interface, custom_distances, epsilon, unc
             if region and (residue1.resnum not in region or residue2.resnum not in region):
                 continue
 
+            if chains and (residue1.chain.id not in chains or residue2.chain.id not in chains):
+                continue
+
             if len(residue1.atoms) > 1 and len(residue2.atoms) > 1:
                 ca1, ca2 = residue1.atoms[1], residue2.atoms[1] # alpha carbons
 
@@ -77,8 +74,10 @@ def contact_detection(protein, region, interface, custom_distances, epsilon, unc
                         continue
 
             else:
-                continue              
-            
+                continue
+
+            pair_key = (residue1.chain.id, residue1.resnum, residue2.chain.id, residue2.resnum)
+
             # CHECKING FOR AROMATIC STACKINGS
             if residue1.ring and residue2.ring:
                 ring1, ring2 = residue1.atoms[-1], residue2.atoms[-1] # RNG atoms
@@ -97,13 +96,21 @@ def contact_detection(protein, region, interface, custom_distances, epsilon, unc
                     else:
                         stack_type = "-other"
 
-                    contact = Contact(protein.id, residue1.chain.id, residue1.resnum, residue1.resname, ring1.atomname, 
-                                    protein.id, residue2.chain.id, residue2.resnum, residue2.resname, ring2.atomname, 
-                                    float(f"{distance:.2f}"), "stacking"+stack_type, ring1, ring2)
-                    
-                    count_contacts['stacking'][1] += 1
-                    
-                    contacts.append(contact)
+                    contacts_by_pair[pair_key].append({
+                        'protein_id': protein.id,
+                        'chain1': residue1.chain.id,
+                        'resnum1': residue1.resnum,
+                        'resname1': residue1.resname,
+                        'atomname1': ring1.atomname,
+                        'chain2': residue2.chain.id,
+                        'resnum2': residue2.resnum,
+                        'resname2': residue2.resname,
+                        'atomname2': ring2.atomname,
+                        'distance': float(f"{distance:.2f}"),
+                        'type': "stacking"+stack_type,
+                        'atom1': ring1,
+                        'atom2': ring2,
+                    })
                     
             for atom1 in residue1.atoms:
                 for atom2 in residue2.atoms:
@@ -129,31 +136,60 @@ def contact_detection(protein, region, interface, custom_distances, epsilon, unc
 
                                 if distance_range[0] <= distance <= distance_range[1]: # fits the range
 
-                                    def get_props(name):
+                                    def get_props(name, contact_type = contact_type):
                                         if name in uncertainty_flags and contact_type in ['attractive','repulsive','salt_bridge']:
                                             return resolve_uncertainty(name, uncertainty_flags, local_contact_types)
-                                        elif contact_type == 'disulfide_bond':
+                                        if contact_type == 'disulfide_bond':
                                             return name
-                                        return conditions.contact_types[name]
+                                        return local_contact_types[name]
 
                                     props1 = get_props(name1)
                                     props2 = get_props(name2)
-                                
-                                    if conditions.contact_conditions[contact_type](props1, props2): # fits the type of contact
-                                                                                                
-                                        contact = Contact(protein.id, residue1.chain.id, residue1.resnum, residue1.resname, atom1.atomname, 
-                                                        protein.id, residue2.chain.id, residue2.resnum, residue2.resname, atom2.atomname, 
-                                                        float(f"{distance:.2f}"), contact_type, atom1, atom2)
 
-                                        contacts.append(contact)
-                                        if (name1 in uncertainty_flags or name2 in uncertainty_flags) and contact_type in ['attractive','repulsive','salt_bridge']:
-                                            uncertain_contacts.append(contact)
-                                            
-                                        count_contacts[contact_type][1] += 1
+                                    if not conditions.contact_conditions[contact_type](props1, props2):
+                                        continue
                                     
-                                    #interface_res.add(f"{residue1.chain.id},{residue1.resnum},{residue1.resname}")
+                                    stored_types = contact_registry[pair_key] # empty set if pair_key is new
+                                                                                            
+                                    if contact_type == 'salt_bridge':
+                                        if 'attractive' in stored_types:
+                                            # filters attractives out in-place (salt_bridge has priority)
+                                            contacts_by_pair[pair_key] = [c for c in contacts_by_pair[pair_key] if c['type'] != 'attractive']
+                                            stored_types.remove('attractive')
+                                        if 'salt_bridge' in stored_types:
+                                            continue # skip adding duplicate
+                                        stored_types.add('salt_bridge')
+                                    elif contact_type == 'attractive':
+                                        if 'attractive' in stored_types or 'salt_bridge' in stored_types:
+                                            continue
+                                        stored_types.add('attractive')
+                                    elif contact_type == 'repulsive':
+                                        if 'repulsive' in stored_types:
+                                            continue
+                                        stored_types.add('repulsive')
+                                    else:
+                                        stored_types.add(contact_type)
+                                    
+                                    contacts_by_pair[pair_key].append({
+                                        'protein_id': protein.id,
+                                        'chain1': residue1.chain.id,
+                                        'resnum1': residue1.resnum,
+                                        'resname1': residue1.resname,
+                                        'atomname1': atom1.atomname,
+                                        'chain2': residue2.chain.id,
+                                        'resnum2': residue2.resnum,
+                                        'resname2': residue2.resname,
+                                        'atomname2': atom2.atomname,
+                                        'distance': float(f"{distance:.2f}"),
+                                        'type': contact_type,
+                                        'atom1': atom1,
+                                        'atom2': atom2,
+                                        'is_uncertain':(name1 in uncertainty_flags or name2 in uncertainty_flags) and contact_type in ['attractive', 'repulsive', 'salt_bridge'],
+                                    })
+    
+    contacts, count_types = create_contacts(contacts_by_pair)
                                             
-    return contacts, interface_res, count_contacts, uncertain_contacts
+    return contacts, interface_res, count_types, uncertain_contacts
 
 
 def show_contacts(contacts):
@@ -271,3 +307,43 @@ def resolve_uncertainty(name, uncertainty_flags, local_contact_types):
         new_atom_props[3] = 1
 
     return new_atom_props
+
+
+def create_contacts(contacts_by_pair):
+    count_types = {
+        "hydrogen_bond":["HB",0],
+        "hydrophobic":["HY",0],
+        "attractive":["AT",0],
+        "repulsive":["RE",0],
+        "salt_bridge":["SB",0],
+        "disulfide_bond":["DS",0],
+        "stacking":["AS",0],
+    }
+    contacts = []
+
+    for contact_list in contacts_by_pair.values():
+        for entry in contact_list:
+            
+            contact_type = entry['type']
+            is_uncertain = entry.get('is_uncertain', False)
+            if is_uncertain:
+                count_types[contact_type][1] += 1
+                contact_type = f"uncertain_{contact_type}"
+            elif contact_type.startswith('stacking'):
+                count_types['stacking'][1] += 1
+            else:
+                count_types[contact_type][1] += 1
+                
+            contact = Contact(
+                entry['protein_id'],
+                entry['chain1'], entry['resnum1'], entry['resname1'], entry['atomname1'],
+                entry['protein_id'],
+                entry['chain2'], entry['resnum2'], entry['resname2'], entry['atomname2'],
+                entry['distance'],
+                contact_type,
+                entry['atom1'],
+                entry['atom2']
+            )
+            contacts.append(contact)
+
+    return contacts, count_types

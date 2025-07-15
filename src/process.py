@@ -140,7 +140,7 @@ def process_file(file_path, context):
         else:
             uncertainty_flags, local_contact_types = contacts.change_protonation(context.ph, context.silent)
             
-        contacts_list, interface_res, count_contacts, uncertain_results = contacts.contact_detection(parsed_data, context.region, context.interface, context.custom_distances, context.epsilon, uncertainty_flags, local_contact_types)
+        contacts_list, interface_res, count_contacts, uncertain_results = contacts.contact_detection(parsed_data, context.region, context.chains, context.interface, context.custom_distances, context.epsilon, uncertainty_flags, local_contact_types)
         process_time = timer() - start_time
         
         return parsed_data, contacts_list, process_time, interface_res, count_contacts, uncertain_results, ph
@@ -177,17 +177,15 @@ def process_result(result, context):
             with open(f"{output_folder}/{protein.id}_contacts.csv","w") as f:
                 f.write(contacts.show_contacts(contacts_list))
             
-            if uncertain_contacts:    
-                with open(f"{output_folder}/{protein.id}_uncertain_contacts.csv","w") as f:
-                    f.write(f"The side-chain pKa value of at least one residue is within +-1.0 of used pH value ({ph}).\n")
-                    f.write("Chain1,Res1,ResName1,Atom1,Chain2,Res2,ResName2,Atom2,Distance,Type\n")
-                    for line in uncertain_contacts:
-                        f.write(f"{line.print_text()}\n")
-            
-            ### Created for COCaDA_speed ###
-            # with open(f"{output_folder}/{protein.id}_interface.csv", "w") as f:
-            #     for res in interface_res:
-            #         f.write(f"{res}\n")  # Writes each residue on a new line
+            ## Testing adding uncertain contacts directly into the output
+            ## Uncomment to do separately
+            #
+            # if uncertain_contacts:    
+            #     with open(f"{output_folder}/uncertain_contacts.csv","w") as f:
+            #         f.write(f"The side-chain pKa value of at least one residue is within +-1.0 of used pH value ({ph}).\n")
+            #         f.write("Chain1,Res1,ResName1,Atom1,Chain2,Res2,ResName2,Atom2,Distance,Type\n")
+            #         for line in uncertain_contacts:
+            #             f.write(f"{line.print_text()}\n")
 
 
 def log(message, silent=False):

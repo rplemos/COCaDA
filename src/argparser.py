@@ -39,6 +39,7 @@ def cl_parse():
         parser.add_argument('-d', '--distances', nargs='?', type=validate_distances, default=False, help='Processes custom contact distances based on the "contact_distances.txt" file.')
         parser.add_argument('-ph', '--ph', type=validate_ph, default=None, help='pH value (0-14)')
         parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
+        parser.add_argument('-c', '--chains', required=False, nargs='?', help='Define only specific chains to be analyzed. -c A = only one chain. -c A,B,C... = specific multiple chains.')
 
         args = parser.parse_args()
 
@@ -64,7 +65,13 @@ def cl_parse():
             region = validate_region(region_values)
         else:
             region = None
-        
+            
+        chain_values = args.chains
+        if chain_values is not None:
+            chains = validate_chains(chain_values)
+        else:
+            chains = None
+
     except ArgumentError as e:
         print(f"Argument Error: {str(e)}")
         exit(1)
@@ -77,7 +84,7 @@ def cl_parse():
         print(f"An unexpected error occurred: {str(e)}")
         exit(1)
     
-    return files, core, output, region, interface, distances, ph, silent
+    return files, core, output, region, chains, interface, distances, ph, silent
         
         
 def validate_file(value):
@@ -175,7 +182,21 @@ def validate_region(region):
             raise ArgumentTypeError("One or more value is not valid.")
         return res_list
     
+    # Check if it's a list of single uppercase letters (e.g. A,B,C)
+    letter_list_match = re.match(r'^([a-zA-Z](,[a-zA-Z])*)$', region)
+    if letter_list_match:
+        return region.split(',')
+    
     raise ArgumentTypeError(f"Invalid region format: {region}. Use a range (x-y) or a list (x,y,z).")
+
+
+def validate_chains(chains):
+    # Check if it's a list of single uppercase letters (e.g. A,B,C)
+    letter_list_match = re.match(r'^([a-zA-Z](,[a-zA-Z])*)$', chains)
+    if letter_list_match:
+        return chains.split(',')
+    
+    raise ArgumentTypeError(f"Invalid region format: {chains}. Use one value (A) or a list (A,B,C...).")
 
 
 def validate_ph(value):
