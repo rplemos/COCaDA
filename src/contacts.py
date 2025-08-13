@@ -269,7 +269,7 @@ def change_protonation(ph, silent):
             new_pos, new_neg = original_pos, original_neg  # Default: no change            
             
             if resname in ['D', 'E', 'C', 'Y']:  # Acidic
-                if delta < 1.0:
+                if delta < 2.0:
                     new_pos = 0
                     new_neg = 0
                     uncertainty_flags[key] = {'neg': True}
@@ -279,7 +279,7 @@ def change_protonation(ph, silent):
                     new_neg = 1 if is_deprotonated else 0
 
             elif resname in ['R', 'K', 'H']:  # Basic
-                if delta < 1.0:
+                if delta < 2.0:
                     new_pos = 0
                     new_neg = 0
                     uncertainty_flags[key] = {'pos': True}

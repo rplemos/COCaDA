@@ -115,12 +115,12 @@ def parse_pdb(pdb_file):
                     current_protein.chains.append(current_chain)
                     current_residue = None
 
-                if current_residue is None:  # new residue
+                if current_residue is None:  # first residue of the chain
                     atoms = []
                     current_residue = Residue(resnum, resname, atoms, current_chain, False, None)
-                    current_chain.residues.append(current_residue)
+                    #current_chain.residues.append(current_residue)
                 
-                if current_residue.resnum != resnum:
+                if current_residue.resnum != resnum: # new residue
                     if len(current_residue.atoms) >= 1:
                         current_chain.residues.append(current_residue)
                     atoms = []
@@ -269,6 +269,7 @@ def parse_cif(cif_file):
                 atomname_index = atom_lines.index("label_atom_id")
                 resname_index = atom_lines.index("label_comp_id")
                 chain_index = atom_lines.index("label_asym_id")
+                chain_index2 = atom_lines.index("auth_asym_id")
                 
                 if "auth_seq_id" in atom_lines:
                     resnum_index = atom_lines.index("auth_seq_id")
@@ -299,7 +300,10 @@ def parse_cif(cif_file):
                     break
                     #return current_protein
                 
-                chain_id = line[chain_index]
+                if line[chain_index] != ".":
+                    chain_id = line[chain_index]
+                else:
+                    chain_id = line[chain_index2]
                 
                 resnum = int(line[resnum_index])
                 # if resnum <= 0:
@@ -321,10 +325,10 @@ def parse_cif(cif_file):
                     current_protein.chains.append(current_chain)
                     current_residue = None
 
-                if current_residue is None:  # first residue
+                if current_residue is None:  # first residue of the chain
                     atoms = []
                     current_residue = Residue(resnum, resname, atoms, current_chain, False, None)
-                    current_chain.residues.append(current_residue)
+                    #current_chain.residues.append(current_residue)
                 
                 if current_residue.resnum != resnum: # new residue
                     if len(current_residue.atoms) >= 1:
@@ -339,7 +343,10 @@ def parse_cif(cif_file):
                 x, y, z = float(line[x_index]), float(line[y_index]), float(line[z_index])
                 occupancy = float(line[occupancy_index])
                 
-                entity = line[entity_index]
+                if line[entity_index] == ".":
+                    entity = chain_id
+                else:
+                    entity = line[entity_index]
                     
                 if (occupancy == 0 or occupancy >= 0.5): # ignores low quality atoms
                     if current_residue.atoms and current_residue.atoms[-1].atomname == atomname: # ignores the second one if both have occupancy == 0.5
