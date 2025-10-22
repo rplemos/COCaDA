@@ -24,9 +24,9 @@ def single(file_list, context):
     for file in file_list:
         try:
             result = process_file(file, context)
-            process_result(result, context.output)
+            process_result(result, context)
         except Exception as e:
-            print(f"Error: {e}")
+            log(f"Error: {e}")
 
 
 def multi_batch(file_list, context):
@@ -41,22 +41,26 @@ def multi_batch(file_list, context):
 
     try:
         from concurrent.futures import ProcessPoolExecutor, as_completed
-        from psutil import Process, cpu_count
+        from psutil import Process
         
         if isinstance(core, list):
-            Process(os.getpid()).cpu_affinity(core)
+            try:
+                Process(os.getpid()).cpu_affinity(core)
+            except AttributeError:
+                log("Setting core affinity is not supported on this OS. Using cores automatically selected by OS", context.silent)
+                
             if core[-1] - core[0] == len(core) - 1:
-                print(f"Running on cores {core[0]} to {core[-1]}\nTotal number of cores: {len(core)}")
+                log(f"Running on cores {core[0]} to {core[-1]}\nTotal number of cores: {len(core)}", context.silent)
             else:
-                print(f"Running on cores: {', '.join(map(str, core))}\nTotal number of cores: {len(core)}")
+                log(f"Running on cores: {', '.join(map(str, core))}\nTotal number of cores: {len(core)}", context.silent)
             num_cores = len(core)
         else:
-            print(f"Running on {core} cores (automatically selected by OS)")
+            log(f"Running on {core} cores (automatically selected by OS)", context.silent)
             num_cores = core
          
         batch_size = max(1, len(file_list) // num_cores)
-        print(f"Number of files: {len(file_list)} | Batch size: {batch_size} files per core")
-        print()
+        log(f"Number of files: {len(file_list)} | Batch size: {batch_size} files per core", context.silent)
+        log("\n", context.silent)
         
         with ProcessPoolExecutor(max_workers=num_cores) as executor:
             futures = {executor.submit(process_batch, batch, context): batch
@@ -66,11 +70,11 @@ def multi_batch(file_list, context):
                 try:
                     future.result()  # Process results from batch
                 except Exception as e:
-                    print(f"Error processing batch: {e}")
+                    log(f"Error processing batch: {e}")
                 finally:
                     del futures[future] 
     except ImportError:
-        print("Error.")
+        log("Error.")
         exit(1)
 
 
@@ -85,7 +89,7 @@ def process_batch(batch, context):
     for file_path in batch:
         result = process_file(file_path, context)
         if result:
-            process_result(result, context.output)
+            process_result(result, context)
 
 
 def batch_generator(file_list, batch_size):
@@ -121,25 +125,38 @@ def process_file(file_path, context):
     start_time = timer()
 
     try:
-        parsed_data = parser.parse_pdb(file_path) if file_path.endswith(".pdb") else parser.parse_cif(file_path)
-
+        parsed_data, ph = parser.parse_pdb(file_path) if file_path.endswith(".pdb") else parser.parse_cif(file_path)
+                
+        if context.ph is None:
+            uncertainty_flags, local_contact_types = contacts.change_protonation(ph, context.silent)
+            if ph != 7.4:
+                log(f"Found experimental protein pH value at {ph}. You can change this using the -ph flag.", context.silent)
+                log(f"Changing protonation states of pH-sensitive atoms using pH value of {ph}.", context.silent)
+            else:
+                log("Defaulting pH value to 7.4.", context.silent)
+        else:
+            if context.ph == -1:
+                context.ph = ph
+            uncertainty_flags, local_contact_types = contacts.change_protonation(context.ph, context.silent)
+            
         if parsed_data.true_count() > 10000:  # Skip very large proteins (customizable)
-            print(f"Skipping ID '{parsed_data.id}'. Size: {parsed_data.true_count()} residues") 
+            log(f"Skipping ID '{parsed_data.id}'. Size: {parsed_data.true_count()} residues.\n", context.silent) 
             if context.output:
                 with open(f"{context.output}/big.csv", "a") as f:
-                    f.write(f"{parsed_data.id},{parsed_data.title},{parsed_data.true_count()},x\n")
+                    f.write(f"{parsed_data.id},{parsed_data.title},{parsed_data.true_count()},x,{ph}\n")
             return None
-
-        contacts_list = contacts.contact_detection(parsed_data, context.custom_distances, context.epsilon)
+            
+        contacts_list, interface_res, count_types = contacts.contact_detection(parsed_data, context, uncertainty_flags, local_contact_types)
         process_time = timer() - start_time
-        return parsed_data, contacts_list, process_time
+
+        return parsed_data, contacts_list, process_time, interface_res, count_types, ph
 
     except Exception as e:
-        print(f"Error processing {file_path}: {e}")
+        log(f"Error processing {file_path}: {e}")
         return None
 
 
-def process_result(result, output):
+def process_result(result, context):
     """
     Handles the result of processing a file.
 
@@ -148,24 +165,38 @@ def process_result(result, output):
         output (str): The directory where output files will be saved.
     """
     if result:
-        protein, contacts_list, process_time = result
-        output_data = f"ID: {protein.id} | Size: {protein.true_count():<7} | Contacts: {len(contacts_list):<7} | Time: {process_time:.3f}s"
-        print(output_data)
+        protein, contacts_list, process_time, interface_res, count_types, ph = result
+        output, silent, web = context.output, context.silent, context.web
+        ph = ph if context.ph is None else context.ph
         
+        output_data = f"ID: {protein.id} | Size: {protein.true_count():<7} | Contacts: {len(contacts_list):<7} | pH: {ph:.2f} | Time: {process_time:.3f}s"
+        count = '; '.join(f"{v[0]}: {v[1]:>5}" for v in count_types.values())
+        log(output_data)
+        log(f"{count}\n", silent)
+                
         if output:
-            output_folder = f"{output}/{protein.id}/"
-            
+            #output_folder = output if web else f"{output}/{protein.id}/"
+            output_folder = output
+            contacts_file = f"{output_folder}/contacts.csv" if web else f"{output_folder}/{protein.id}_contacts.csv"
+            info_file = f"{output_folder}/info.csv" if web else f"{output_folder}/{protein.id}_info.csv"
+
             if not os.path.exists(output_folder):
                 os.makedirs(output_folder)
             
-            with open(f"{output_folder}/{protein.id}_contacts.csv","w") as f:
+            with open(contacts_file,"w") as f:
                 f.write(contacts.show_contacts(contacts_list))
+                    
+            # COCaDA-web exclusive
+            if web:
+                number_contacts = contacts.count_contacts(contacts_list)
+                number_contacts = ','.join(map(str, number_contacts))
+                with open(info_file,"w") as f:
+                    f.write(f"{protein.id},{protein.title},{protein.true_count()},{len(contacts_list)},{number_contacts},{ph}")
+            else:
+                list_file = f"{output}/list.csv"
+                with open(list_file,"a") as f:
+                    f.write(f"{protein.id},{protein.title},{protein.true_count()},{len(contacts_list)},{ph}\n")
 
-
-def validate_categories(categories):
-    for key, (min_val, max_val) in categories.items():
-        if min_val < 0 or max_val < 0:
-            raise ValueError(f"Invalid values for '{key}': values must be positive.")
-        if min_val >= max_val:
-            raise ValueError(f"Invalid range for '{key}': min ({min_val}) must be less than max ({max_val}).")
-    return categories
+def log(message, silent=False):
+    if not silent:
+        print(message)
