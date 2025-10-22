@@ -24,17 +24,15 @@ categories = {
     'aromatic': (2, 5)
 }
 
-
 contact_conditions = {
-    'salt_bridge': lambda name1, name2: (contact_types[name1][2] == 1 and contact_types[name2][3] == 1) or (contact_types[name1][3] == 1 and contact_types[name2][2] == 1),
+    'salt_bridge': lambda p1, p2: (p1[2] == 1 and p2[3] == 1) or (p1[3] == 1 and p2[2] == 1),
     'disulfide_bond': lambda name1, name2: name1 == "C:SG" and name2 == "C:SG",
-    'hydrogen_bond': lambda name1, name2: ((contact_types[name1][4] == 1 and contact_types[name2][5] == 1) or (contact_types[name1][5] == 1 and contact_types[name2][4] == 1)),  
-    'hydrophobic': lambda name1, name2: contact_types[name1][0] == 1 and contact_types[name2][0] == 1,
-    'repulsive': lambda name1, name2: (contact_types[name1][2] == 1 and contact_types[name2][2] == 1) or (contact_types[name1][3] == 1 and contact_types[name2][3] == 1),
-    'attractive': lambda name1, name2: (contact_types[name1][2] == 1 and contact_types[name2][3] == 1) or (contact_types[name1][3] == 1 and contact_types[name2][2] == 1),
-    'aromatic': lambda name1, name2: (contact_types[name1][1] == 2 and contact_types[name2][1] == 2) # aromatics are checked elsewhere
+    'hydrogen_bond': lambda p1, p2: (p1[4] == 1 and p2[5] == 1) or (p1[5] == 1 and p2[4] == 1),
+    'hydrophobic': lambda p1, p2: p1[0] == 1 and p2[0] == 1,
+    'repulsive': lambda p1, p2: (p1[2] == 1 and p2[2] == 1) or (p1[3] == 1 and p2[3] == 1),
+    'attractive': lambda p1, p2: (p1[2] == 1 and p2[3] == 1) or (p1[3] == 1 and p2[2] == 1),
+    'aromatic': lambda p1, p2: p1[1] == 2 and p2[1] == 2 # Handled elsewhere
 }
-
 
 # 'RES:ATOM':	[	Hydrophobic,	Aromatic,	Positive,	Negative,	Donor,	Acceptor	]
 # 'A:CA':		[	0|1,			0|1,		0|1,		0|1,		0|1,	0|1			]

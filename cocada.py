@@ -6,13 +6,11 @@ License: MIT License
 """
 
 import os
-import json
 from timeit import default_timer as timer
 
 import src.argparser as argparser
 import src.classes as classes
 import src.process as process
-
 
 def main():
     """
@@ -24,46 +22,53 @@ def main():
     """
     global_time_start = timer()
     
-    file_list, core, output, custom_distances = argparser.cl_parse()
+    file_list, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web = argparser.cl_parse()
     
-    print("--------------COCaDA----------------\n")
+    process.log("\n--------------COCaDA----------------\n", silent)
     
     # context object for shared parameters
-    context = classes.ProcessingContext(core=core, output=output, custom_distances=custom_distances) 
-    
+    context = classes.ProcessingContext(core=core, output=output, region=region, chains=chains, interface=interface, 
+                                        distances=distances, modified_distances=modified_distances, ph=ph, silent=silent, interchain=interchain, web=web)
+
     if core is not None:  # Set specific core affinity
-        print("Multicore mode selected.")
+        process.log("Multicore mode selected.", silent)
     else:
-        print("Running on single mode with no specific core.")
+        process.log("Running on single mode with no specific core.", silent)
+
+    if interface:
+        process.log("Calculating only interface contacts.", silent)
+        
+    if region:
+        process.log(f"Calculating contacts in the region: {region}", silent)
+    
+    if chains:
+        process.log(f"Calculating contacts in the chains: {chains}", silent)
+        
+    if interchain:
+        process.log(f"Calculating only interchain contacts.", silent)
                
     if output:
-        print(f"Generating outputs in '{output}' folder.")
+        process.log(f"Generating outputs in '{output}' folder.", silent)
         if not os.path.exists(output):
             os.makedirs(output)
     else:
         output = None
         
-    if custom_distances:
-        print("Using custom distances provided by the user.")
-        with open("./contact_distances.json","r") as f:
-            loaded_distances = json.load(f)
-        try:
-            validated_distances = process.validate_categories({key: tuple(value) for key, value in loaded_distances.items()})
-            max_value = max(y for x in validated_distances.values() for y in x)
-            if max_value > 6:
-                context.epsilon = max_value - 6
-        except ValueError as e:
-            print(e)  
-            exit(1)
-            
-        context.custom_distances = validated_distances
+    if ph and ph != -1:
+        process.log(f"Changing protonation states of pH-sensitive atoms using pH value of {ph}.\n", silent)
+        
+    if modified_distances:
+        process.log("Using custom distances provided by the user.", silent)
+        max_value = max(y for x in distances.values() for y in x)
+        if max_value > 6:
+            context.epsilon = max_value - 6
 
-    print()
+    process.log("\n", silent)
     process_func = process.single if core is None else process.multi_batch
     process_func(file_list, context)
     
-    print("\n------------------------------------\n")
-    print(f"Total time elapsed: {(timer() - global_time_start):.3f}s\n")
+    process.log("\n------------------------------------\n", silent)
+    process.log(f"Total time elapsed: {(timer() - global_time_start):.3f}s\n", silent)
 
 
 if __name__ == "__main__":

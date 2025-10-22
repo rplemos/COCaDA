@@ -4,9 +4,10 @@ Date: 12/08/2024
 
 License: MIT License
 """
+
 # 210 pairs in the form: 'Res1Res2': Distance,
 # ALL VALUES WERE ADDED .01 TO HANDLE SMALL ROUNDING ERRORS
-distances = { 
+distances = {
     'AG': 7.66,
     'GG': 7.78,
     'GP': 8.04,
