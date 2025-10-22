@@ -235,13 +235,13 @@ def change_protonation(ph, silent):
     from src.process import log
     
     pka_table = {
-        'R': 12.48,
-        'K': 10.79,
-        'H': 6.04,
-        'D': 3.86,
-        'E': 4.25,
-        'C': 8.33,
-        'Y': 10.07,
+        'R': 12.5,
+        'K': 10.5,
+        'H': 6.0,
+        'D': 3.9,
+        'E': 4.3,
+        'C': 8.3,
+        'Y': 10.1,
     }
     
     pH_sensitive_atoms = {
