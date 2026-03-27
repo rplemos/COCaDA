@@ -1,9 +1,11 @@
 """
-Author: Rafael Lemos - rafaellemos42@gmail.com
-Date: 12/08/2024
+COCaDA v1.6
+Author: Rafael Lemos - rafaellemos@ufmg.br
+Date: 26/03/2026
 
 License: MIT License
 """
+
 
 # 210 pairs in the form: 'Res1Res2': Distance,
 # ALL VALUES WERE ADDED .01 TO HANDLE SMALL ROUNDING ERRORS

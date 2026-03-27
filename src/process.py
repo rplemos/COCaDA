@@ -1,6 +1,7 @@
 """
-Author: Rafael Lemos - rafaellemos42@gmail.com
-Date: 15/05/2025
+COCaDA v1.6
+Author: Rafael Lemos - rafaellemos@ufmg.br
+Date: 26/03/2026
 
 License: MIT License
 """
@@ -175,24 +176,29 @@ def process_result(result, context):
         log(f"{count}\n", silent)
                 
         if output:
-            #output_folder = output if web else f"{output}/{protein.id}/"
-            output_folder = output
-            contacts_file = f"{output_folder}/contacts.csv" if web else f"{output_folder}/{protein.id}_contacts.csv"
-            info_file = f"{output_folder}/info.csv" if web else f"{output_folder}/{protein.id}_info.csv"
+            os.makedirs(output, exist_ok=True)
 
-            if not os.path.exists(output_folder):
-                os.makedirs(output_folder)
+            if web == 0: # default
+                contacts_file = f"{output}/{protein.id}_contacts.csv"
+            elif web == 1: # web
+                contacts_file = f"{output}/contacts.csv"
+                info_file = f"{output}/info.csv"
+            elif web == 2: # database update
+                base = f"{output}/{protein.id}"
+                os.makedirs(base, exist_ok=True)
+                contacts_file = f"{base}/{protein.id}_contacts.csv"
+                info_file = f"{base}/{protein.id}_info.csv"
             
             with open(contacts_file,"w") as f:
                 f.write(contacts.show_contacts(contacts_list))
                     
             # COCaDA-web exclusive
-            if web:
+            if web == 1 or web == 2: # web or database update
                 number_contacts = contacts.count_contacts(contacts_list)
                 number_contacts = ','.join(map(str, number_contacts))
                 with open(info_file,"w") as f:
                     f.write(f"{protein.id},{protein.title},{protein.true_count()},{len(contacts_list)},{number_contacts},{ph}")
-            else:
+            if web == 0 or web == 2: # default and database update
                 list_file = f"{output}/list.csv"
                 with open(list_file,"a") as f:
                     f.write(f"{protein.id},{protein.title},{protein.true_count()},{len(contacts_list)},{ph}\n")

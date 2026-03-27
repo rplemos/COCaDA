@@ -1,6 +1,7 @@
 """
-Author: Rafael Lemos - rafaellemos42@gmail.com
-Date: 12/08/2024
+COCaDA v1.6
+Author: Rafael Lemos - rafaellemos@ufmg.br
+Date: 26/03/2026
 
 License: MIT License
 """
@@ -28,7 +29,7 @@ def main():
     
     # context object for shared parameters
     context = classes.ProcessingContext(core=core, output=output, region=region, chains=chains, interface=interface, 
-                                        distances=distances, modified_distances=modified_distances, ph=ph, silent=silent, interchain=interchain, web=web)
+                                        distances=distances, modified_distances=modified_distances, ph=ph, silent=silent, interchain=interchain, web=int(web))
 
     if core is not None:  # Set specific core affinity
         process.log("Multicore mode selected.", silent)

@@ -1,6 +1,7 @@
 """
-Author: Rafael Lemos - rafaellemos42@gmail.com
-Date: 12/08/2024
+COCaDA v1.6
+Author: Rafael Lemos - rafaellemos@ufmg.br
+Date: 26/03/2026
 
 License: MIT License
 """
@@ -48,7 +49,7 @@ def cl_parse():
         parser.add_argument('-c', '--chains', required=False, nargs='?', help='Define only specific chains to be analyzed. -c A = only one chain. -c A,B,C... = specific multiple chains.')
         parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
         parser.add_argument('-inter', '--interchain', required=False, action='store_true', help='Calculates only interchain contacts.')
-        parser.add_argument('-w', '--web', required=False, action='store_true', help=SUPPRESS) #'Sets outputs to web format. Requires the use of -o flag.'
+        parser.add_argument('-w', '--web', required=False, default=0, help=SUPPRESS) #'Sets outputs to web format. Requires the use of -o flag.'
 
         args = parser.parse_args()
 

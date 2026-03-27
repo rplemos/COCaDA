@@ -1,9 +1,11 @@
 """
-Author: Rafael Lemos - rafaellemos42@gmail.com
-Date: 12/08/2024
+COCaDA v1.6
+Author: Rafael Lemos - rafaellemos@ufmg.br
+Date: 26/03/2026
 
 License: MIT License
 """
+
 
 # RULES
 # 1 - must be made by different residue atoms
