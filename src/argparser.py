@@ -45,7 +45,7 @@ def cl_parse():
                             'representing min and max distances for each of the 7 contact types in the following order: ' \
                             'salt_bridge_min,salt_bridge_max,hydrophobic_min,hydrophobic_max,hydrogen_bond_min,hydrogen_bond_max,repulsive_min,repulsive_max,' \
                             'attractive_min,attractive_max,disulfide_bond_min,disulfide_bond_max,aromatic_min,aromatic_max')
-        parser.add_argument('-ph', '--ph', type=validate_ph, default=None, help='pH value (0-14)')
+        parser.add_argument('-ph', '--ph', type=validate_ph, default=None, help='Define pH value to be used. Only electrostatic contacts are affected. By default, uses pH value of 7.4. Values between 0 and 14 are accepted.')
         parser.add_argument('-c', '--chains', required=False, nargs='?', help='Define only specific chains to be analyzed. -c A = only one chain. -c A,B,C... = specific multiple chains.')
         parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
         parser.add_argument('-inter', '--interchain', required=False, action='store_true', help='Calculates only interchain contacts.')
