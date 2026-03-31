@@ -284,8 +284,13 @@ def validate_distances(value):
             modified_values = True
         except Exception as e:
             raise ArgumentTypeError(f"Error loading JSON file: {e}")
-    elif len(value) > 1:  # User passed 14 comma-separated values
-        parts = value.split(',')
+    elif isinstance(value, list):  # User passed 14 comma-separated values
+        parts = value[0].split(',')
+        try:
+            if len(parts) != 14:
+                raise ArgumentTypeError(f"Expected 14 comma-separated values for distances, got {len(parts)}.")
+        except Exception as e:
+            raise ArgumentTypeError(f"Error processing distance values: {e}")
         try:
             floats = [float(x) for x in parts]
         except ValueError:
