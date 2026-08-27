@@ -126,7 +126,7 @@ def process_file(file_path, context):
     start_time = timer()
 
     try:
-        parsed_data, ph = parser.parse_pdb(file_path) if file_path.endswith(".pdb") else parser.parse_cif(file_path)
+        parsed_data, ph = parser.parse_pdb(file_path) if file_path.endswith(".pdb") else parser.parse_cif(file_path, context.propedia)
                 
         if context.ph is None:
             uncertainty_flags, local_contact_types = contacts.change_protonation(ph, context.silent)

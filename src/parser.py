@@ -178,7 +178,7 @@ def parse_pdb(pdb_file):
     return current_protein, ph
 
 
-def parse_cif(cif_file):
+def parse_cif(cif_file, propedia=False):
     """
     Parses a .cif file to create a Protein object.
 
@@ -307,10 +307,13 @@ def parse_cif(cif_file):
                     break
                     #return current_protein
                 
-                if line[chain_index] != ".":
-                    chain_id = line[chain_index]
-                else:
+                if propedia:
                     chain_id = line[chain_index2]
+                else:
+                    if line[chain_index] != ".":
+                        chain_id = line[chain_index]
+                    else:
+                        chain_id = line[chain_index2]
                 
                 resnum = int(line[resnum_index])
                 # if resnum <= 0:

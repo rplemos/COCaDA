@@ -18,7 +18,7 @@ class ProcessingContext:
         interface (bool): Whether to process interface-related data. Defaults to False.
     """
 
-    def __init__(self, distances, core=None, output=None, region=False, chains=False, interface=False, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False):
+    def __init__(self, distances, core=None, output=None, region=False, chains=False, interface=False, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False, propedia=False):
         self.core = core
         self.output = output
         self.region = region
@@ -32,6 +32,7 @@ class ProcessingContext:
         self.uncertainty_flags = uncertainty_flags
         self.interchain = interchain
         self.web = web
+        self.propedia = propedia
 
 class Protein:
     """

@@ -50,6 +50,7 @@ def cl_parse():
         parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
         parser.add_argument('-inter', '--interchain', required=False, action='store_true', help='Calculates only interchain contacts.')
         parser.add_argument('-w', '--web', required=False, default=0, help=SUPPRESS) #'Sets outputs to web format. Requires the use of -o flag.'
+        parser.add_argument('-propedia', '--propedia', required=False, action='store_true', help=SUPPRESS)
 
         args = parser.parse_args()
 
@@ -59,7 +60,8 @@ def cl_parse():
         silent = args.silent
         interchain = args.interchain
         web = args.web
-                
+        propedia = args.propedia
+
         ncores = cpu_count()
         multi = args.cores
         if multi is not None:
@@ -113,7 +115,7 @@ def cl_parse():
         #traceback.print_exc() 
         exit(1)
         
-    return files, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web
+    return files, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web, propedia
         
         
 def validate_file(value):
