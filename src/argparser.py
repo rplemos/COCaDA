@@ -220,8 +220,8 @@ def validate_region(region):
 
 
 def validate_chains(chains):
-    # Check if it's a list of single uppercase letters (e.g. A,B,C)
-    letter_list_match = re.match(r'^([a-zA-Z](,[a-zA-Z])*)$', chains)
+    # Check if it's a list of single letters or numbers (e.g. A,3,g,9)
+    letter_list_match = re.match(r'^([a-zA-Z0-9](,[a-zA-Z0-9])*)$', chains)
     if letter_list_match:
         return chains.split(',')
     

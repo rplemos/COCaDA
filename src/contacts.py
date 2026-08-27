@@ -16,6 +16,7 @@ from collections import defaultdict
 from src.classes import Contact
 from src.distances import distances
 import src.conditions as conditions
+import sys
 
 
 def contact_detection(protein, context, uncertainty_flags, local_contact_types):
@@ -32,6 +33,10 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     region, chains, interface, interchain, argument_distances, modified_distances, epsilon = (
         context.region, context.chains, context.interface, context.interchain, context.distances, context.modified_distances, context.epsilon
     )
+
+    prot_chains = []
+    for chain in protein.chains:
+        prot_chains.append(chain.id)
 
     residues = list(protein.get_residues())
     contacts = []
@@ -56,7 +61,11 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     for i, residue1 in enumerate(residues[1:]):
         for _, residue2 in enumerate(residues[i+1:], start=i+1):
             chain1, chain2 = residue1.chain.id, residue2.chain.id
-            
+
+            for chain in chains:
+                if chain not in prot_chains:
+                    sys.exit(f"Error: Chain {chain} is not present in the protein.")
+
             if (
                 (residue1.resnum == residue2.resnum and chain1 == chain2)  # same residue
                 or (region and (residue1.resnum not in region or residue2.resnum not in region))  # outside region
