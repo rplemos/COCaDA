@@ -220,12 +220,14 @@ def validate_region(region):
 
 
 def validate_chains(chains):
-    # Check if it's a list of single letters or numbers (e.g. A,3,g,9)
-    letter_list_match = re.match(r'^([a-zA-Z0-9](,[a-zA-Z0-9])*)$', chains)
-    if letter_list_match:
+    # Matches: [1 or more Uppercase] OR [exactly 1 lowercase] OR [exactly 1 number]
+    # Repeated as a comma-separated list
+    pattern = r'^([A-Z]+|[a-z]|[0-9])(,([A-Z]+|[a-z]|[0-9]))*$'
+    
+    if re.match(pattern, chains):
         return chains.split(',')
     
-    raise ArgumentTypeError(f"Invalid region format: {chains}. Use one value (A) or a list (A,B,C...).")
+    raise ArgumentTypeError(f"Invalid region format: {chains}. Use valid values (A, AA, b, 3) or a list (AA,b,3...).")
 
 
 def validate_ph(value):
