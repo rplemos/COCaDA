@@ -62,9 +62,10 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
         for _, residue2 in enumerate(residues[i+1:], start=i+1):
             chain1, chain2 = residue1.chain.id, residue2.chain.id
 
-            for chain in chains:
-                if chain not in prot_chains:
-                    sys.exit(f"Error: Chain {chain} is not present in the protein.")
+            if chains is not None:
+                for chain in chains:
+                    if chain not in prot_chains:
+                        sys.exit(f"Error: Chain {chain} is not present in the protein.")
 
             if (
                 (residue1.resnum == residue2.resnum and chain1 == chain2)  # same residue
