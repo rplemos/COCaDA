@@ -138,16 +138,15 @@ def parse_pdb(pdb_file):
                 
                 x, y, z = float(line[30:38]), float(line[38:46]), float(line[46:54])
                 occupancy = float(line[55:60])
-                
-                # if (occupancy == 0 or occupancy >= 0.5): # ignores low quality atoms
-                if current_residue.atoms and current_residue.atoms[-1].atomname == atomname: # same atom, different occupancies
-                    prev_occupancy = current_residue.atoms[-1].occupancy
-                    if occupancy < prev_occupancy:
-                        continue
-                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity) # creates atom
-                current_residue.atoms.append(atom)
-                # else:
-                #     continue
+
+                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity)
+                for index, existing in enumerate(current_residue.atoms):
+                    if existing.atomname == atomname:
+                        if occupancy > existing.occupancy:
+                            current_residue.atoms[index] = atom
+                        break
+                else:
+                    current_residue.atoms.append(atom)
 
                 # CHECKING FOR AROMATICS
                 if current_residue.resname in stacking:
@@ -304,8 +303,10 @@ def parse_cif(cif_file):
                 models.append(int(line[model_index]))
                 curr_model = int(line[model_index])
                 if curr_model != models[0]: # parses only the first model (NMR files)
+                    if current_residue is not None and len(current_residue.atoms) >= 1:
+                        current_chain.residues.append(current_residue)
+                        current_residue = None
                     break
-                    #return current_protein
                 
                 if line[chain_index] != ".":
                     chain_id = line[chain_index]
@@ -356,16 +357,15 @@ def parse_cif(cif_file):
                     entity = chain_id
                 else:
                     entity = line[entity_index]
-                    
-                # if (occupancy == 0 or occupancy >= 0.5): # ignores low quality atoms
-                if current_residue.atoms and current_residue.atoms[-1].atomname == atomname: # same atom, different occupancies
-                    prev_occupancy = current_residue.atoms[-1].occupancy
-                    if occupancy < prev_occupancy:
-                        continue
-                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity) # creates atom
-                current_residue.atoms.append(atom)
-                # else:
-                #     continue
+
+                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity)
+                for index, existing in enumerate(current_residue.atoms):
+                    if existing.atomname == atomname:
+                        if occupancy > existing.occupancy:
+                            current_residue.atoms[index] = atom
+                        break
+                else:
+                    current_residue.atoms.append(atom)
                                 
                 # CHECKING FOR AROMATICS
                 if current_residue.resname in stacking:
